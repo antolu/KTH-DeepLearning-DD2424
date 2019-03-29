@@ -47,7 +47,7 @@ GDParams{3}.n_epochs = 40;
 GDParams{3}.start_epoch = 1;
 GDParams{3}.lambda = 0.1;
 
-GDParams{4}.eta = 0.1;
+GDParams{4}.eta = 0.01;
 GDParams{4}.n_batch = 100;
 GDParams{4}.n_epochs = 40;
 GDParams{4}.start_epoch = 1;
@@ -59,9 +59,9 @@ for i=1:4
 
     Wstar = cell(MAX_EPOCH);
     bstar = cell(MAX_EPOCH);
-    accuracy.train = zeros(MAX_EPOCH);
-    accuracy.validation = zeros(MAX_EPOCH);
-    accuracy.test = zeros(MAX_EPOCH);
+    accuracy.train = zeros(1, MAX_EPOCH);
+    accuracy.validation = zeros(1, MAX_EPOCH);
+    accuracy.test = zeros(1, MAX_EPOCH);
 
     Ws = W;
     bs = b;
