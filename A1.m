@@ -98,7 +98,7 @@ for i=1:4
         s_im{k} = permute(s_im{k}, [2, 1, 3]);
     end
 
-    montage(s_im);
+    montage(s_im, 'Size', [2, 5]);
 
     montagename = ["plots/W_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
 
@@ -110,7 +110,7 @@ for i=1:4
 
     plottitle = ["cost vs epoch plot, $\eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda, "$"];
 
-    title(join(plottitle, ""));
+    title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
     plot(1:MAX_EPOCH, J.train, 'LineWidth', 1.2);
@@ -136,7 +136,7 @@ for i=1:4
 
     plottitle = ["loss vs epoch plot, $\eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda, "$"];
 
-    title(join(plottitle, ""));
+    title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
     plot(1:MAX_EPOCH, l.train, 'LineWidth', 1.2);
