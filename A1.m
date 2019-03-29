@@ -75,20 +75,18 @@ for i=1:4
         Wstar{epoch} = Ws; bstar{epoch} = bs;
         [l_train(epoch) J_train(epoch)]  = ComputeCost(Xtrain, Ytrain, Ws, bs, lambda); J.train = J_train; l.train = l_train;
         [l_val(epoch) J_val(epoch)] = ComputeCost(Xval, Yval, Ws, bs, lambda); J.val = J_val; l.val = l_val;
-        [l_test J_test(epoch)] = ComputeCost(Xtest, Ytest, Ws, bs, lambda); J.test = J_test; l.test = l_test;
+        [l_test(epoch) J_test(epoch)] = ComputeCost(Xtest, Ytest, Ws, bs, lambda); J.test = J_test; l.test = l_test;
 
         accuracy.train(epoch) = ComputeAccuracy(Xtrain, trainy, Ws, bs);
         accuracy.validation(epoch) = ComputeAccuracy(Xval, yval, Ws, bs);
         accuracy.test(epoch) = ComputeAccuracy(Xtest, ytest, Ws, bs);
+
         epoch
         GDParams{i}.start_epoch = epoch;
     end
     
-    dataname(1) = "data_lambda";
-    dataname(2) = GDParams{i}.lambda;
-    dataname(3) = "_eta";
-    dataname(4) = GDParams{i}.eta;
-    dataname(5) = ".mat";
+    % Save data
+    dataname = ["data_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".mat"];
 
     save(join(dataname, ""), 'Wstar', 'bstar', 'J', 'accuracy', 'l');
     
@@ -101,49 +99,60 @@ for i=1:4
     end
 
     montage(s_im);
-    montagename(1) = "plots/W_lambda";
-    montagename(2) = GDParams{i}.lambda;
-    montagename(3) = "_eta";
-    montagename(4) = GDParams{i}.eta;
-    montagename(5) = ".eps";
+
+    montagename = ["plots/W_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
 
     saveas(gca, join(montagename, ""), 'epsc');
 
-    % Plot loss
+    % Plot cost
 
     figure; 
 
-    plottitle(1) = "loss vs epoch plot, \eta=";
-    plottitle(2) = GDParams{i}.eta;
-    plottitle(3) = ", \lambda=";
-    plottitle(4) = GDParams{i}.lambda;
+    plottitle = ["cost vs epoch plot, $\eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda, "$"];
 
     title(join(plottitle, ""));
 
     hold on
-    plot(1:MAX_EPOCH, J.train, 'LineWidth', 2);
-    plot(1:MAX_EPOCH, J.val, 'LineWidth', 2);
-    plot(1:MAX_EPOCH, J.test, 'LineWidth', 2);
+    plot(1:MAX_EPOCH, J.train, 'LineWidth', 1.2);
+    plot(1:MAX_EPOCH, J.val, 'LineWidth', 1.2);
+    plot(1:MAX_EPOCH, J.test, 'LineWidth', 1.2);
     hold off
 
-    legend('training loss', 'validation loss', 'test loss');
+    legend('training cost', 'validation cost', 'test cost');
 
     xlabel('epoch');
-    ylabel('loss');
+    ylabel('cost');
     axis([0, 40, 0.75 * min(J.test), 1.1 * max(J.test)]);
 
-    plotname(1) = "plots/loss_lambda";
-    plotname(2) = GDParams{i}.lambda;
-    plotname(3) = "_eta";
-    plotname(4) = GDParams{i}.eta;
-    plotname(5) = ".eps";
+    plotname = ["plots/cost_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
 
     saveas(gca, join(plotname, ""), 'epsc');
     
     close all;
     
     % Plot loss
+
+    figure; 
+
+    plottitle = ["loss vs epoch plot, $\eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda, "$"];
+
+    title(join(plottitle, ""));
+
+    hold on
+    plot(1:MAX_EPOCH, l.train, 'LineWidth', 1.2);
+    plot(1:MAX_EPOCH, l.val, 'LineWidth', 1.2);
+    plot(1:MAX_EPOCH, l.test, 'LineWidth', 1.2);
+    hold off
+
+    legend('training loss', 'validation loss', 'test loss');
+
+    xlabel('epoch');
+    ylabel('loss');
+    axis([0, 40, 0.75 * min(l.test), 1.1 * max(l.test)]);
+
+    plotname = ["plots/loss_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
+
+    saveas(gca, join(plotname, ""), 'epsc');
     
+    close all;
 end
-
-
