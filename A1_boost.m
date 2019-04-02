@@ -1,7 +1,31 @@
 addpath datasets\cifar-10
 
-[Xtrain, Ytrain, trainy] = LoadBatch('data_batch_1.mat');
+%% Standard datasets
+
+[Xtrain, Ytrain, ytrain] = LoadBatch('data_batch_1.mat');
 [Xval, Yval, yval] = LoadBatch('data_batch_2.mat');
+[Xtest, Ytest, ytest] = LoadBatch('test_batch.mat');
+
+%% Full datasets
+
+[Xtrain1, Ytrain1, ytrain1] = LoadBatch('data_batch_1.mat');
+[Xtrain2, Ytrain2, ytrain2] = LoadBatch('data_batch_2.mat');
+[Xtrain3, Ytrain3, ytrain3] = LoadBatch('data_batch_3.mat');
+[Xtrain4, Ytrain4, ytrain4] = LoadBatch('data_batch_4.mat');
+[Xtrain5, Ytrain5, ytrain5] = LoadBatch('data_batch_5.mat');
+
+Xtrain = [Xtrain1, Xtrain2, Xtrain3, Xtrain4, Xtrain5];
+Ytrain = [Ytrain1, Ytrain2, Ytrain3, Ytrain4, Ytrain5];
+ytrain = [ytrain1; ytrain2; ytrain3; ytrain4; ytrain5];
+
+Xtrain = Xtrain(:, 1:end-1000);
+Ytrain = sparse(Ytrain(:, 1:end-1000));
+ytrain = ytrain(1:end-1000);
+
+Xval = Xtrain(:, end-999:end);
+Yval = Ytrain(:, end-999:end);
+yval = ytrain(end-999:end);
+
 [Xtest, Ytest, ytest] = LoadBatch('test_batch.mat');
 
 %% Initialize W, b
@@ -10,19 +34,7 @@ rng(400);
 W = 0.01 * randn(10, 3072);
 b = 0.01 * randn(10, 1);
 
-MAX_EPOCH = 40;
-
-%% Evaluate
-
-P = EvaluateClassifier(Xtrain(:, 1:100), W, b)
-
-J = ComputeCost(Xtrain(:, 1:100), Ytrain(:, 1:100), W, b, lambda)
-
-[gradW, gradb] = ComputeGradients(Xtrain(:, 1:100), Ytrain(:, 1:100), P, W, lambda);
-
-[ngradb, ngradW] = ComputeGradsNum(Xtrain(:, 1:100), Ytrain(:, 1:100), W, b, lambda, 1e-6);
-
-correlation = sum(abs(ngradW - gradW)) / max(1e-6, sum(abs(ngradW)) + sum(abs(gradW)));
+MAX_EPOCH = 500;
 
 %% 
 
@@ -54,7 +66,7 @@ GDParams{4}.lambda = 1;
 
 for i=1:4
     
-    clear J_train J_test J_val
+    clear J_train J_test J_val l_train l_val l_test
 
     Wstar = cell(MAX_EPOCH);
     bstar = cell(MAX_EPOCH);
@@ -70,7 +82,7 @@ for i=1:4
     [l_val(1), J_val(1)] = ComputeCost(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
     [l_test(1), J_test(1)] = ComputeCost(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
 
-    accuracy.train(1) = ComputeAccuracy(Xtrain, trainy, Ws, bs);
+    accuracy.train(1) = ComputeAccuracy(Xtrain, ytrain, Ws, bs);
     accuracy.validation(1) = ComputeAccuracy(Xval, yval, Ws, bs);
     accuracy.test(1) = ComputeAccuracy(Xtest, ytest, Ws, bs);
 
@@ -84,7 +96,7 @@ for i=1:4
         [l_val(epoch+1), J_val(epoch+1)] = ComputeCost(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
         [l_test(epoch+1), J_test(epoch+1)] = ComputeCost(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
 
-        accuracy.train(epoch+1) = ComputeAccuracy(Xtrain, trainy, Ws, bs);
+        accuracy.train(epoch+1) = ComputeAccuracy(Xtrain, ytrain, Ws, bs);
         accuracy.validation(epoch+1) = ComputeAccuracy(Xval, yval, Ws, bs);
         accuracy.test(epoch+1) = ComputeAccuracy(Xtest, ytest, Ws, bs);
 
@@ -123,7 +135,7 @@ for i=1:4
     plot([0, 1:MAX_EPOCH], J.train, 'LineWidth', 1.2);
     plot([0, 1:MAX_EPOCH], J.val, 'LineWidth', 1.2);
     plot([0, 1:MAX_EPOCH], J.test, 'LineWidth', 1.2);
-    
+    hold off
 
     legend('training cost', 'validation cost', 'test cost');
 
@@ -132,7 +144,6 @@ for i=1:4
     axis([0, MAX_EPOCH, 0.75 * min(J.test), 1.1 * max(J.test)]);
 
     plotname = ["plots/cost_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
-    hold off
 
     saveas(gca, join(plotname, ""), 'epsc');
     
@@ -182,7 +193,7 @@ for i=1:4
 
     xlabel('epoch');
     ylabel('accuracy');
-    axis([0, MAX_EPOCH, 0.8 * min(accuracy.test), 1.1 * max(accuracy.test)]);
+    axis([0, MAX_EPOCH, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
 
     plotname = ["plots/accuracy_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
 

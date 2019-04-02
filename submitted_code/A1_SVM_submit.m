@@ -1,3 +1,89 @@
+function [l, J] = ComputeCost(X, Y, W, b, lambda)
+
+xSize = size(X);
+numberOfSamples = xSize(2);
+
+S = W * X + b * ones(1, size(X, 2));
+
+l = 0;
+
+for i=1:numberOfSamples
+    pos = find(Y(:, i)==1);
+    sy = S(pos, i);
+    s = S(:, i) - sy;
+    s = s + 1;
+    s(s<0) = 0;
+    k = sum(s) - 1;
+    l = l + k;
+end
+
+l = l / numberOfSamples;
+
+regularisation = lambda * sum(sum(W.^2));
+
+J = l + regularisation;
+
+end
+
+function [Wstar, bstar] = MiniBatchGD(X, Y, GDParams, W, b)
+
+N = size(X, 2);
+
+n_epochs = GDParams.n_epochs;
+
+for i=GDParams.start_epoch:n_epochs
+    random = randperm(size(X,2));
+%     X = X(:, random);
+%     Y = Y(:, random);
+    
+    for j=1:N/GDParams.n_batch
+        j_start = (j-1) * GDParams.n_batch + 1;
+        j_end = j * GDParams.n_batch;
+        inds = j_start:j_end;
+
+        Xbatch = X(:, inds);
+        Ybatch = Y(:, inds);
+
+        P = EvaluateClassifier(Xbatch, W, b);
+
+        [gradW, gradb] = ComputeGradientsSVM(Xbatch, Ybatch, b, W, GDParams.lambda);
+
+        W = W - GDParams.eta * gradW;
+        b = b - GDParams.eta * gradb;
+    end
+    
+%     GDParams.eta = 0.9 * GDParams.eta;
+end
+
+Wstar = W;
+bstar = b;
+
+end
+
+function [gradW, gradb] = ComputeGradientsSVM(X, Y, b, W, lambda)
+
+xSize = size(X);
+batchSize = xSize(2);
+
+S = W * X + b * ones(1, size(X, 2));
+
+Sy = S .* Y;
+
+Gbatch = heaviside(S - sum(Sy) + 1);
+
+for i=1:batchSize
+    pos = find(Y(:, i) == 1);
+    Gbatch(pos, i) = -sum(Gbatch(:, i)) + Gbatch(pos, i);
+end
+
+dLdW = (1 / batchSize) * Gbatch * X';
+dLdb = (1 / batchSize) * Gbatch * ones(batchSize, 1);
+
+gradW = dLdW + 2 * lambda * W;
+gradb = dLdb;
+
+end
+
 addpath datasets\cifar-10
 
 [Xtrain, Ytrain, trainy] = LoadBatch('data_batch_1.mat');
@@ -10,15 +96,15 @@ rng(400);
 W = 0.01 * randn(10, 3072);
 b = 0.01 * randn(10, 1);
 
-MAX_EPOCH = 40;
+MAX_EPOCH = 100;
 
 %% Evaluate
 
-P = EvaluateClassifier(Xtrain(:, 1:100), W, b)
+lambda = 0;
 
-J = ComputeCost(Xtrain(:, 1:100), Ytrain(:, 1:100), W, b, lambda)
+J = ComputeCostSVM(Xtrain(:, 1:100), Ytrain(:, 1:100), W, b, lambda)
 
-[gradW, gradb] = ComputeGradients(Xtrain(:, 1:100), Ytrain(:, 1:100), P, W, lambda);
+[gradW, gradb] = ComputeGradientsSVM(Xtrain(:, 1:100), Ytrain(:, 1:100), b, W, lambda);
 
 [ngradb, ngradW] = ComputeGradsNum(Xtrain(:, 1:100), Ytrain(:, 1:100), W, b, lambda, 1e-6);
 
@@ -28,33 +114,27 @@ correlation = sum(abs(ngradW - gradW)) / max(1e-6, sum(abs(ngradW)) + sum(abs(gr
 
 GDParams = cell(4);
 
-GDParams{1}.eta = 0.1;
+GDParams{1}.eta = 0.001;
 GDParams{1}.n_batch = 100;
-GDParams{1}.n_epochs = 40;
+GDParams{1}.n_epochs = MAX_EPOCH;
 GDParams{1}.start_epoch = 1;
 GDParams{1}.lambda = 0;
 
 GDParams{2}.eta = 0.01;
 GDParams{2}.n_batch = 100;
-GDParams{2}.n_epochs = 40;
+GDParams{2}.n_epochs = MAX_EPOCH;
 GDParams{2}.start_epoch = 1;
 GDParams{2}.lambda = 0;
 
-GDParams{3}.eta = 0.01;
+GDParams{3}.eta = 0.001;
 GDParams{3}.n_batch = 100;
-GDParams{3}.n_epochs = 40;
+GDParams{3}.n_epochs = MAX_EPOCH;
 GDParams{3}.start_epoch = 1;
 GDParams{3}.lambda = 0.1;
 
-GDParams{4}.eta = 0.01;
-GDParams{4}.n_batch = 100;
-GDParams{4}.n_epochs = 40;
-GDParams{4}.start_epoch = 1;
-GDParams{4}.lambda = 1;
-
-for i=1:4
+for i=1:3
     
-    clear J_train J_test J_val
+    clear J_train J_test J_val l_val l_train l_test
 
     Wstar = cell(MAX_EPOCH);
     bstar = cell(MAX_EPOCH);
@@ -66,9 +146,9 @@ for i=1:4
     bs = b;
     j = zeros(1, MAX_EPOCH);
     
-    [l_train(1), J_train(1)]  = ComputeCost(Xtrain, Ytrain, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
-    [l_val(1), J_val(1)] = ComputeCost(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
-    [l_test(1), J_test(1)] = ComputeCost(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
+    [l_train(1), J_train(1)]  = ComputeCostSVM(Xtrain, Ytrain, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
+    [l_val(1), J_val(1)] = ComputeCostSVM(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
+    [l_test(1), J_test(1)] = ComputeCostSVM(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
 
     accuracy.train(1) = ComputeAccuracy(Xtrain, trainy, Ws, bs);
     accuracy.validation(1) = ComputeAccuracy(Xval, yval, Ws, bs);
@@ -80,9 +160,9 @@ for i=1:4
         [Ws, bs] = MiniBatchGD(Xtrain, Ytrain, GDParams{i}, Ws, bs);
 
         Wstar{epoch} = Ws; bstar{epoch} = bs;
-        [l_train(epoch+1), J_train(epoch+1)]  = ComputeCost(Xtrain, Ytrain, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
-        [l_val(epoch+1), J_val(epoch+1)] = ComputeCost(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
-        [l_test(epoch+1), J_test(epoch+1)] = ComputeCost(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
+        [l_train(epoch+1), J_train(epoch+1)]  = ComputeCostSVM(Xtrain, Ytrain, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
+        [l_val(epoch+1), J_val(epoch+1)] = ComputeCostSVM(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
+        [l_test(epoch+1), J_test(epoch+1)] = ComputeCostSVM(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
 
         accuracy.train(epoch+1) = ComputeAccuracy(Xtrain, trainy, Ws, bs);
         accuracy.validation(epoch+1) = ComputeAccuracy(Xval, yval, Ws, bs);
@@ -182,7 +262,7 @@ for i=1:4
 
     xlabel('epoch');
     ylabel('accuracy');
-    axis([0, MAX_EPOCH, 0.8 * min(accuracy.test), 1.1 * max(accuracy.test)]);
+    axis([0, MAX_EPOCH, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
 
     plotname = ["plots/accuracy_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
 
