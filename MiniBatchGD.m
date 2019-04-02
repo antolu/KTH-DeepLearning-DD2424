@@ -19,13 +19,13 @@ for i=GDParams.start_epoch:n_epochs
 
         P = EvaluateClassifier(Xbatch, W, b);
 
-        [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, W, GDParams.lambda);
+        [gradW, gradb] = ComputeGradientsSVM(Xbatch, Ybatch, b, W, GDParams.lambda);
 
         W = W - GDParams.eta * gradW;
         b = b - GDParams.eta * gradb;
     end
     
-    GDParams.eta = 0.9 * GDParams.eta;
+%     GDParams.eta = 0.9 * GDParams.eta;
 end
 
 Wstar = W;
