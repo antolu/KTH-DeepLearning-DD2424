@@ -12,7 +12,9 @@ gradW2 = dLdW2 + 2 * lambda * W{2};
 gradb2 = dLdb2;
 
 Gbatch1 = W{2}' * Gbatch2;
-Gbatch1 = Gbatch1 .* H;
+Ind = H;
+Ind(Ind>0) = 1;
+Gbatch1 = Gbatch1 .* Ind;
 
 dLdW1 = (1 / batchSize) * Gbatch1 * X';
 dLdb1 = (1 / batchSize) * Gbatch1 * ones(batchSize, 1);
