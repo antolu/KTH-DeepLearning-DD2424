@@ -14,9 +14,10 @@ D = size(Xtrain, 1);
 M = 50;
 C = 10;
 
+dimensions = [D, M, C];
+
 % rng(400);
-W = {1/sqrt(D) * randn(M, D), 1/sqrt(M) * randn(C, M)};
-b = {zeros(M, 1), zeros(C, 1)};
+[W, B] = XavierInitialise(D);
 
 MAX_EPOCH = 1000;
 
@@ -41,10 +42,10 @@ correlation(2) = sum(abs(ngradW{2} - gradW{2})) / max(1e-6, sum(abs(ngradW{2})) 
 
 % GDParams = cell(4);
 
-GDParams{1}.n_cycles = 3;
+GDParams{1}.n_cycles = 1;
 GDParams{1}.eta_min = 1e-5;
 GDParams{1}.eta_max = 1e-1;
-GDParams{1}.n_s = 800;
+GDParams{1}.n_s = 500;
 GDParams{1}.l = 0;
 GDParams{1}.t = 0;
 GDParams{1}.n_batch = 100;
