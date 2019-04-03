@@ -4,6 +4,10 @@ addpath datasets\cifar-10
 [Xval, Yval, yval] = LoadBatchZeroMean('data_batch_2.mat');
 [Xtest, Ytest, ytest] = LoadBatchZeroMean('test_batch.mat');
 
+X.train = Xtrain; X.val = Xval; X.test = Xtest;
+Y.train = Ytrain; Y.val = Yval; Y.test = Ytest;
+y.train = trainy; y.val = yval; y.test = ytest;
+
 %% Initialize W, b
 
 D = size(Xtrain, 1);
@@ -14,7 +18,7 @@ rng(400);
 W = {1/sqrt(D) * randn(M, D), 1/sqrt(M) * randn(C, M)};
 b = {zeros(M, 1), zeros(C, 1)};
 
-MAX_EPOCH = 40;
+MAX_EPOCH = 1000;
 
 lambda = 0;
 
@@ -35,45 +39,50 @@ correlation(2) = sum(abs(ngradW{2} - gradW{2})) / max(1e-6, sum(abs(ngradW{2})) 
 
 %% 
 
-GDParams = cell(4);
+% GDParams = cell(4);
 
-GDParams{1}.eta = 0.1;
+GDParams{1}.eta_min = 1e-5;
+GDParams{1}.eta_max = 1e-1;
+GDParams{1}.n_s = 500;
+GDParams{1}.l = 0;
+GDParams{1}.t = 0;
 GDParams{1}.n_batch = 100;
-GDParams{1}.n_epochs = 40;
+GDParams{1}.n_epochs = 2 * GDParams{1}.n_s / GDParams{1}.n_batch;
 GDParams{1}.start_epoch = 1;
-GDParams{1}.lambda = 0;
+GDParams{1}.lambda = 0.01;
 
-GDParams{2}.eta = 0.01;
-GDParams{2}.n_batch = 100;
-GDParams{2}.n_epochs = 40;
-GDParams{2}.start_epoch = 1;
-GDParams{2}.lambda = 0;
+% GDParams{2}.eta = 0.01;
+% GDParams{2}.n_batch = 100;
+% GDParams{2}.n_epochs = 40;
+% GDParams{2}.start_epoch = 1;
+% GDParams{2}.lambda = 0;
+% 
+% GDParams{3}.eta = 0.01;
+% GDParams{3}.n_batch = 100;
+% GDParams{3}.n_epochs = 40;
+% GDParams{3}.start_epoch = 1;
+% GDParams{3}.lambda = 0.1;
+% 
+% GDParams{4}.eta = 0.01;
+% GDParams{4}.n_batch = 100;
+% GDParams{4}.n_epochs = 40;
+% GDParams{4}.start_epoch = 1;
+% GDParams{4}.lambda = 1;
 
-GDParams{3}.eta = 0.01;
-GDParams{3}.n_batch = 100;
-GDParams{3}.n_epochs = 40;
-GDParams{3}.start_epoch = 1;
-GDParams{3}.lambda = 0.1;
-
-GDParams{4}.eta = 0.01;
-GDParams{4}.n_batch = 100;
-GDParams{4}.n_epochs = 40;
-GDParams{4}.start_epoch = 1;
-GDParams{4}.lambda = 1;
-
-for i=1:4
+for i=1:size(GDParams)
     
-    clear J_train J_test J_val
+    clear J_train J_test J_val l_train l_val l_test
 
-    Wstar = cell(MAX_EPOCH);
-    bstar = cell(MAX_EPOCH);
-    accuracy.train = zeros(1, MAX_EPOCH);
-    accuracy.validation = zeros(1, MAX_EPOCH);
-    accuracy.test = zeros(1, MAX_EPOCH);
+    Wstar = cell(MAX_EPOCH, 2);
+    bstar = cell(MAX_EPOCH, 2);
+    accuracy.train = zeros(1, GDParams{i}.n_epochs + 1);
+    accuracy.validation = zeros(1, GDParams{i}.n_epochs + 1);
+    accuracy.test = zeros(1, GDParams{i}.n_epochs + 1);
 
     Ws = W;
     bs = b;
     j = zeros(1, MAX_EPOCH);
+    t = 0;
     
     [l_train(1), J_train(1)]  = ComputeCost2(Xtrain, Ytrain, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
     [l_val(1), J_val(1)] = ComputeCost2(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
@@ -83,64 +92,48 @@ for i=1:4
     accuracy.validation(1) = ComputeAccuracy2(Xval, yval, Ws, bs);
     accuracy.test(1) = ComputeAccuracy2(Xtest, ytest, Ws, bs);
 
-    for epoch=1:MAX_EPOCH
-        GDParams{i}.n_epochs = epoch;
-
-        [Ws, bs] = MiniBatchGD2(Xtrain, Ytrain, GDParams{i}, Ws, bs);
-
-        Wstar{epoch} = Ws; bstar{epoch} = bs;
-        [l_train(epoch+1), J_train(epoch+1)]  = ComputeCost2(Xtrain, Ytrain, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
-        [l_val(epoch+1), J_val(epoch+1)] = ComputeCost2(Xval, Yval, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
-        [l_test(epoch+1), J_test(epoch+1)] = ComputeCost2(Xtest, Ytest, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
-
-        accuracy.train(epoch+1) = ComputeAccuracy2(Xtrain, trainy, Ws, bs);
-        accuracy.validation(epoch+1) = ComputeAccuracy2(Xval, yval, Ws, bs);
-        accuracy.test(epoch+1) = ComputeAccuracy2(Xtest, ytest, Ws, bs);
-
-        epoch
-        GDParams{i}.start_epoch = epoch;
-    end
+    [Ws, bs, J, l, accuracy, t, eta] = MiniBatchGD2(X, Y, y, GDParams{i}, Ws, bs, J, l, accuracy, t);
     
     % Save data
-    dataname = ["data_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".mat"];
-
-    save(join(dataname, ""), 'Wstar', 'bstar', 'J', 'accuracy', 'l');
+%     dataname = ["data_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".mat"];
+% 
+%     save(join(dataname, ""), 'Wstar', 'bstar', 'J', 'accuracy', 'l');
     
     % Plot W
-
-    for k=1:10
-        im = reshape(Wstar{MAX_EPOCH}(k, :), 32, 32, 3);
-        s_im{k} = (im - min(im(:))) / (max(im(:)) - min(im(:)));
-        s_im{k} = permute(s_im{k}, [2, 1, 3]);
-    end
-
-    montage(s_im, 'Size', [2, 5]);
-
-    montagename = ["plots/W_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
-
-    saveas(gca, join(montagename, ""), 'epsc');
+% 
+%     for k=1:10
+%         im = reshape(Wstar{MAX_EPOCH, 1}(k, :), 32, 32, 3);
+%         s_im{k} = (im - min(im(:))) / (max(im(:)) - min(im(:)));
+%         s_im{k} = permute(s_im{k}, [2, 1, 3]);
+%     end
+% 
+%     montage(s_im, 'Size', [2, 5]);
+% 
+%     montagename = ["plots/W_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
+% 
+%     saveas(gca, join(montagename, ""), 'epsc');
 
     % Plot cost
 
     figure; 
 
-    plottitle = ["cost vs epoch plot, \eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda];
+    plottitle = ["cost vs epoch plot, \eta=", GDParams{i}.eta_max, ", \lambda=", GDParams{i}.lambda];
 
     title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
-    plot([0, 1:MAX_EPOCH], J.train, 'LineWidth', 1.2);
-    plot([0, 1:MAX_EPOCH], J.val, 'LineWidth', 1.2);
-    plot([0, 1:MAX_EPOCH], J.test, 'LineWidth', 1.2);
+    plot([0:100:1000], J.train, 'LineWidth', 1.2);
+    plot([0:100:1000], J.val, 'LineWidth', 1.2);
+%     plot([0:100:1000], J.test, 'LineWidth', 1.2);
     
 
     legend('training cost', 'validation cost', 'test cost');
 
     xlabel('epoch');
     ylabel('cost');
-    axis([0, MAX_EPOCH, 0.75 * min(J.test), 1.1 * max(J.test)]);
+    axis([0, 1000, 0.75 * min(J.test), 1.1 * max(J.test)]);
 
-    plotname = ["plots/cost_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
+    plotname = ["plots/cost_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
     hold off
 
     saveas(gca, join(plotname, ""), 'epsc');
@@ -151,23 +144,23 @@ for i=1:4
 
     figure; 
 
-    plottitle = ["loss vs epoch plot, \eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda];
+    plottitle = ["loss vs epoch plot, \eta=", GDParams{i}.eta_min, ", \lambda=", GDParams{i}.lambda];
 
     title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
-    plot([0, 1:MAX_EPOCH], l.train, 'LineWidth', 1.2);
-    plot([0, 1:MAX_EPOCH], l.val, 'LineWidth', 1.2);
-    plot([0, 1:MAX_EPOCH], l.test, 'LineWidth', 1.2);
+    plot([0:100:1000], l.train, 'LineWidth', 1.2);
+    plot([0:100:1000], l.val, 'LineWidth', 1.2);
+%     plot([0:100:1000], l.test, 'LineWidth', 1.2);
     hold off
 
     legend('training loss', 'validation loss', 'test loss');
 
     xlabel('epoch');
     ylabel('loss');
-    axis([0, MAX_EPOCH, 0.75 * min(l.test), 1.1 * max(l.test)]);
+    axis([0, 1000, 0.75 * min(l.test), 1.1 * max(l.test)]);
 
-    plotname = ["plots/loss_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
+    plotname = ["plots/loss_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
 
     saveas(gca, join(plotname, ""), 'epsc');
     
@@ -177,23 +170,23 @@ for i=1:4
 
     figure; 
 
-    plottitle = ["accuracy vs epoch plot, \eta=", GDParams{i}.eta, ", \lambda=", GDParams{i}.lambda];
+    plottitle = ["accuracy vs epoch plot, \eta=", GDParams{i}.eta_min, ", \lambda=", GDParams{i}.lambda];
 
     title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
-    plot([0, 1:MAX_EPOCH], accuracy.train, 'LineWidth', 1.2);
-    plot([0, 1:MAX_EPOCH], accuracy.validation, 'LineWidth', 1.2);
-    plot([0, 1:MAX_EPOCH], accuracy.test, 'LineWidth', 1.2);
+    plot([0:100:1000], accuracy.train, 'LineWidth', 1.2);
+    plot([0:100:1000], accuracy.validation, 'LineWidth', 1.2);
+%     plot([0:100:1000], accuracy.test, 'LineWidth', 1.2);
     hold off
 
     legend('training accuracy', 'validation accuracy', 'test accuracy', 'Location','southeast');
 
     xlabel('epoch');
     ylabel('accuracy');
-    axis([0, MAX_EPOCH, 0.8 * min(accuracy.test), 1.1 * max(accuracy.test)]);
+    axis([0, 1000, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
 
-    plotname = ["plots/accuracy_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
+    plotname = ["plots/accuracy_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
 
     saveas(gca, join(plotname, ""), 'epsc');
     
