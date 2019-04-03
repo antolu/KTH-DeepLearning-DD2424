@@ -11,7 +11,7 @@ M = 50;
 C = 10;
 
 rng(400);
-W = {1/sqrt(D) * randn(M, D), 1/sqrt(1) * randn(C, M)};
+W = {1/sqrt(D) * randn(M, D), 1/sqrt(M) * randn(C, M)};
 b = {zeros(M, 1), zeros(C, 1)};
 
 MAX_EPOCH = 40;
