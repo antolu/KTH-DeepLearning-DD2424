@@ -14,7 +14,7 @@ D = size(Xtrain, 1);
 M = 50;
 C = 10;
 
-rng(400);
+% rng(400);
 W = {1/sqrt(D) * randn(M, D), 1/sqrt(M) * randn(C, M)};
 b = {zeros(M, 1), zeros(C, 1)};
 
@@ -41,13 +41,14 @@ correlation(2) = sum(abs(ngradW{2} - gradW{2})) / max(1e-6, sum(abs(ngradW{2})) 
 
 % GDParams = cell(4);
 
+GDParams{1}.n_cycles = 3;
 GDParams{1}.eta_min = 1e-5;
 GDParams{1}.eta_max = 1e-1;
-GDParams{1}.n_s = 500;
+GDParams{1}.n_s = 800;
 GDParams{1}.l = 0;
 GDParams{1}.t = 0;
 GDParams{1}.n_batch = 100;
-GDParams{1}.n_epochs = 2 * GDParams{1}.n_s / GDParams{1}.n_batch;
+GDParams{1}.n_epochs = 2 * GDParams{1}.n_cycles * GDParams{1}.n_s / GDParams{1}.n_batch;
 GDParams{1}.start_epoch = 1;
 GDParams{1}.lambda = 0.01;
 
@@ -122,16 +123,16 @@ for i=1:size(GDParams)
     title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
-    plot([0:100:1000], J.train, 'LineWidth', 1.2);
-    plot([0:100:1000], J.val, 'LineWidth', 1.2);
-%     plot([0:100:1000], J.test, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), J.train, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), J.val, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), J.test, 'LineWidth', 1.2);
     
 
     legend('training cost', 'validation cost', 'test cost');
 
-    xlabel('epoch');
+    xlabel('update step');
     ylabel('cost');
-    axis([0, 1000, 0.75 * min(J.test), 1.1 * max(J.test)]);
+    axis([0, GDParams{i}.n_epochs*GDParams{i}.n_batch, 0.75 * min(J.train), 1.1 * max(J.train)]);
 
     plotname = ["plots/cost_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
     hold off
@@ -149,16 +150,16 @@ for i=1:size(GDParams)
     title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
-    plot([0:100:1000], l.train, 'LineWidth', 1.2);
-    plot([0:100:1000], l.val, 'LineWidth', 1.2);
-%     plot([0:100:1000], l.test, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), l.train, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), l.val, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), l.test, 'LineWidth', 1.2);
     hold off
 
     legend('training loss', 'validation loss', 'test loss');
 
-    xlabel('epoch');
+    xlabel('update step');
     ylabel('loss');
-    axis([0, 1000, 0.75 * min(l.test), 1.1 * max(l.test)]);
+    axis([0, GDParams{i}.n_epochs*GDParams{i}.n_batch, 0.75 * min(l.train), 1.1 * max(l.train)]);
 
     plotname = ["plots/loss_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
 
@@ -175,16 +176,16 @@ for i=1:size(GDParams)
     title(join(plottitle, ""), 'Interpreter','tex');
 
     hold on
-    plot([0:100:1000], accuracy.train, 'LineWidth', 1.2);
-    plot([0:100:1000], accuracy.validation, 'LineWidth', 1.2);
-%     plot([0:100:1000], accuracy.test, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), accuracy.train, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), accuracy.validation, 'LineWidth', 1.2);
+    plot(0:GDParams{i}.n_batch:(GDParams{i}.n_epochs*GDParams{i}.n_batch), accuracy.test, 'LineWidth', 1.2);
     hold off
 
     legend('training accuracy', 'validation accuracy', 'test accuracy', 'Location','southeast');
 
-    xlabel('epoch');
+    xlabel('update step');
     ylabel('accuracy');
-    axis([0, 1000, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
+    axis([0, GDParams{i}.n_epochs*GDParams{i}.n_batch, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
 
     plotname = ["plots/accuracy_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
 
