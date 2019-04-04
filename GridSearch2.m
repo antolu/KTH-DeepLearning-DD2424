@@ -114,9 +114,27 @@ for i=1:size(lambda, 2)
     
     % Compute best accuracy
     best_accuracy(i) = max(accuracy.validation);
+    i
 end
 
 dataname = ["data_ns", GDParams.n_s, "_lmin", l_min, "lmax", l_max, ".mat"];
 
-save('GDParams', 'best_accuracy', 'lambda');
+save(join(dataname, ""), 'GDParams', 'best_accuracy', 'lambda');
 
+%% Plot accuracy
+
+figure; 
+
+plottitle = ["Accuracy vs \lambda plot, coarse search"];
+
+title(join(plottitle, ""), 'Interpreter','tex');
+
+semilogx(lambda, best_accuracy, 'LineWidth', 1.2);
+
+xlabel('\lambda');
+ylabel('accuracy');
+axis([0, max(lambda), 0.8 * min(best_accuracy), 0.6]);
+
+plotname = ["plots/accuracy_lmin", l_min, "_lmax", l_max, ".eps"];
+
+saveas(gca, join(plotname, ""), 'epsc');
