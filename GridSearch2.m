@@ -61,18 +61,22 @@ correlation(2) = sum(abs(ngradW{2} - gradW{2})) / max(1e-6, sum(abs(ngradW{2})) 
 
 MAX_EPOCH = 1000;
 
-lambda = 0;
-l_min = -5;
-l_max = -1;
+% lambda = 0;
+% l_min = -5;
+% l_max = -1;
+l_min = 0.001;
+l_max = 0.006;
 
 %%
 
 % Lambdas to search
-l_min = -5;
-l_max = -1;
-lambda = logspace(l_min, l_max);
+% l_min = -5;
+% l_max = -1;
+% lambda = logspace(l_min, l_max);
+lambda = linspace(l_min, l_max, 50);
 
 best_accuracy = zeros(1, size(lambda, 2));
+accuracies = cell(1, size(lambda, 2));
 
 for i=1:size(lambda, 2)
     
@@ -112,6 +116,8 @@ for i=1:size(lambda, 2)
 
     [Ws, bs, J, l, accuracy, t, eta] = MiniBatchGD2(X, Y, y, GDParams, Ws, bs, J, l, accuracy, t);
     
+    accuracies{i} = accuracy;
+    
     % Compute best accuracy
     best_accuracy(i) = max(accuracy.validation);
     i
@@ -119,7 +125,7 @@ end
 
 dataname = ["data_ns", GDParams.n_s, "_lmin", l_min, "lmax", l_max, ".mat"];
 
-save(join(dataname, ""), 'GDParams', 'best_accuracy', 'lambda');
+save(join(dataname, ""), 'GDParams', 'best_accuracy', 'lambda', 'accuracies');
 
 %% Plot accuracy
 
