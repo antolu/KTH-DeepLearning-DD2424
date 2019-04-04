@@ -6,6 +6,8 @@ J_train = J.train; l_train = l.train;
 J_val = J.val; l_val = l.val;
 J_test = J.test; l_test = l.test;
 
+setbreak = 0;
+
 for epoch=GDParams.start_epoch:GDParams.n_epochs
     random = randperm(size(X,2));
     X = X(:, random);
@@ -14,6 +16,10 @@ for epoch=GDParams.start_epoch:GDParams.n_epochs
     for j=1:N/GDParams.n_batch
         
         GDParams.l = floor(t / (2 * GDParams.n_s));
+        if GDParams.l >= GDParams.n_cycles
+            setbreak = 1;
+            break;
+        end
         
         if (t >= 2 * (GDParams.l) * GDParams.n_s) && (t <= (2 * (GDParams.l) + 1) * GDParams.n_s)
             eta_t = GDParams.eta_min + ((t - 2 * GDParams.l * GDParams.n_s) / GDParams.n_s) * (GDParams.eta_max - GDParams.eta_min);
@@ -44,6 +50,9 @@ for epoch=GDParams.start_epoch:GDParams.n_epochs
         
         t = t + 1;
     end
+    if setbreak == 1
+        break;
+    end
     [l_train(epoch + 1), J_train(epoch + 1)]  = ComputeCost2(X.train, Y.train, W, b, GDParams.lambda); 
     [l_val(epoch + 1), J_val(epoch + 1)] = ComputeCost2(X.val, Y.val, W, b, GDParams.lambda); 
     [l_test(epoch + 1), J_test(epoch + 1)] = ComputeCost2(X.test, Y.test, W, b, GDParams.lambda); 
@@ -51,7 +60,6 @@ for epoch=GDParams.start_epoch:GDParams.n_epochs
     accuracy.train(epoch + 1) = ComputeAccuracy2(X.train, y.train, W, b);
     accuracy.validation(epoch + 1) = ComputeAccuracy2(X.val, y.val, W, b);
     accuracy.test(epoch + 1) = ComputeAccuracy2(X.test, y.test, W, b);
-        
     epoch
 end
 

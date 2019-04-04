@@ -17,7 +17,7 @@ C = 10;
 dimensions = [D, M, C];
 
 % rng(400);
-[W, B] = XavierInitialise(D);
+[W, b] = XavierInitialise(dimensions);
 
 MAX_EPOCH = 1000;
 
@@ -40,8 +40,6 @@ correlation(2) = sum(abs(ngradW{2} - gradW{2})) / max(1e-6, sum(abs(ngradW{2})) 
 
 %% 
 
-% GDParams = cell(4);
-
 GDParams{1}.n_cycles = 1;
 GDParams{1}.eta_min = 1e-5;
 GDParams{1}.eta_max = 1e-1;
@@ -52,24 +50,6 @@ GDParams{1}.n_batch = 100;
 GDParams{1}.n_epochs = 2 * GDParams{1}.n_cycles * GDParams{1}.n_s / GDParams{1}.n_batch;
 GDParams{1}.start_epoch = 1;
 GDParams{1}.lambda = 0.01;
-
-% GDParams{2}.eta = 0.01;
-% GDParams{2}.n_batch = 100;
-% GDParams{2}.n_epochs = 40;
-% GDParams{2}.start_epoch = 1;
-% GDParams{2}.lambda = 0;
-% 
-% GDParams{3}.eta = 0.01;
-% GDParams{3}.n_batch = 100;
-% GDParams{3}.n_epochs = 40;
-% GDParams{3}.start_epoch = 1;
-% GDParams{3}.lambda = 0.1;
-% 
-% GDParams{4}.eta = 0.01;
-% GDParams{4}.n_batch = 100;
-% GDParams{4}.n_epochs = 40;
-% GDParams{4}.start_epoch = 1;
-% GDParams{4}.lambda = 1;
 
 for i=1:size(GDParams)
     
@@ -95,25 +75,6 @@ for i=1:size(GDParams)
     accuracy.test(1) = ComputeAccuracy2(Xtest, ytest, Ws, bs);
 
     [Ws, bs, J, l, accuracy, t, eta] = MiniBatchGD2(X, Y, y, GDParams{i}, Ws, bs, J, l, accuracy, t);
-    
-    % Save data
-%     dataname = ["data_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".mat"];
-% 
-%     save(join(dataname, ""), 'Wstar', 'bstar', 'J', 'accuracy', 'l');
-    
-    % Plot W
-% 
-%     for k=1:10
-%         im = reshape(Wstar{MAX_EPOCH, 1}(k, :), 32, 32, 3);
-%         s_im{k} = (im - min(im(:))) / (max(im(:)) - min(im(:)));
-%         s_im{k} = permute(s_im{k}, [2, 1, 3]);
-%     end
-% 
-%     montage(s_im, 'Size', [2, 5]);
-% 
-%     montagename = ["plots/W_lambda", GDParams{i}.lambda, "_eta", GDParams{i}.eta, ".eps"];
-% 
-%     saveas(gca, join(montagename, ""), 'epsc');
 
     % Plot cost
 

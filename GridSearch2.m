@@ -24,7 +24,7 @@ Xtrain = Xtrain(:, 1:end-5000);
 Ytrain = sparse(Ytrain(:, 1:end-5000));
 ytrain = ytrain(1:end-5000);
 
-[Xtest, Ytest, ytest] = LoadBatch('test_batch.mat');
+[Xtest, Ytest, ytest] = LoadBatchZeroMean('test_batch.mat');
 
 X.train = Xtrain; X.val = Xval; X.test = Xtest;
 Y.train = Ytrain; Y.val = Yval; Y.test = Ytest;
@@ -65,7 +65,7 @@ MAX_EPOCH = 1000;
 % l_min = -5;
 % l_max = -1;
 l_min = 0.001;
-l_max = 0.006;
+l_max = 0.008;
 
 %%
 
