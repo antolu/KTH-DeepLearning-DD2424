@@ -19,7 +19,7 @@ for i=GDParams.start_epoch:n_epochs
 
         P = SoftMax(EvaluateClassifier(Xbatch, W, b));
 
-        [gradW, gradb] = ComputeGradientsSVM(Xbatch, Ybatch, P, W, GDParams.lambda);
+        [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, W, GDParams.lambda);
 
         W = W - GDParams.eta * gradW;
         b = b - GDParams.eta * gradb;
