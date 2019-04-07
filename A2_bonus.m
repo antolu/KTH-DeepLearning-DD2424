@@ -1,3 +1,8 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Load data and calculate accuracy, loss, cost for a 2 layer network
+% Used for optimising the 2 layer network as part of assignment 2.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 addpath datasets\cifar-10
 
 [Xtrain1, Ytrain1, ytrain1] = LoadBatchZeroMean('data_batch_1.mat');
@@ -47,63 +52,88 @@ lambda = 0;
 
 %% 
 
-GDParams{1}.n_cycles = 3;
-GDParams{1}.eta_min = 0.001;
-GDParams{1}.eta_max = 0.005;
-GDParams{1}.l = 0;
-GDParams{1}.t = 0;
-GDParams{1}.n_batch = 100;
-GDParams{1}.n_s = floor(4 * size(X.train, 2) / GDParams{1}.n_batch);
-GDParams{1}.n_epochs = floor(size(X.train, 2) / GDParams{1}.n_s / GDParams{1}.n_cycles / 2);
-GDParams{1}.start_epoch = 1;
-GDParams{1}.lambda = 0.0027;
+GDParams.n_cycles = 10;
+% GDParams.eta_min = 0.000600994000000000;
+GDParams.eta_min = 0.00065;
+GDParams.eta_max = 0.08;
+GDParams.l = 0;
+GDParams.t = 0;
+GDParams.n_batch = 100;
+GDParams.n_s = floor(4 * size(X.train, 2) / GDParams.n_batch);
+GDParams.n_epochs = floor(GDParams.n_batch * GDParams.n_cycles * 2 *GDParams.n_s / size(X.train, 2));
+GDParams.start_epoch = 1;
+GDParams.lambda = 0.0027;
 
-for i=1:size(GDParams)
-    
-    clear J_train J_test J_val l_train l_val l_test
+clear J_train J_test J_val l_train l_val l_test
 
-    accuracy.train = zeros(1, GDParams{1}.n_epochs + 1);
-    accuracy.validation = zeros(1, GDParams{1}.n_epochs + 1);
-    accuracy.test = zeros(1, GDParams{1}.n_epochs + 1);
+accuracy.train = zeros(1, GDParams.n_epochs + 1);
+accuracy.validation = zeros(1, GDParams.n_epochs + 1);
+accuracy.test = zeros(1, GDParams.n_epochs + 1);
 
-    Ws = W;
-    bs = b;
-    j = zeros(1, MAX_EPOCH);
-    t = 0;
-    
-    [l_train(1), J_train(1)]  = ComputeCost2(X.train, Y.train, Ws, bs, GDParams{i}.lambda); J.train = J_train; l.train = l_train;
-    [l_val(1), J_val(1)] = ComputeCost2(X.val, Y.val, Ws, bs, GDParams{i}.lambda); J.val = J_val; l.val = l_val;
-    [l_test(1), J_test(1)] = ComputeCost2(X.test, Y.test, Ws, bs, GDParams{i}.lambda); J.test = J_test; l.test = l_test;
+Ws = W;
+bs = b;
+j = zeros(1, MAX_EPOCH);
+t = 0;
 
-    accuracy.train(1) = ComputeAccuracy2(X.train, y.train, Ws, bs);
-    accuracy.validation(1) = ComputeAccuracy2(X.val, y.val, Ws, bs);
-    accuracy.test(1) = ComputeAccuracy2(X.test, y.test, Ws, bs);
+[l_train(1), J_train(1)]  = ComputeCost2(X.train, Y.train, Ws, bs, GDParams.lambda); J.train = J_train; l.train = l_train;
+[l_val(1), J_val(1)] = ComputeCost2(X.val, Y.val, Ws, bs, GDParams.lambda); J.val = J_val; l.val = l_val;
+[l_test(1), J_test(1)] = ComputeCost2(X.test, Y.test, Ws, bs, GDParams.lambda); J.test = J_test; l.test = l_test;
 
-    [Ws, bs, J, l, accuracy, t, eta] = MiniBatchGDCyclical(X, Y, y, GDParams{i}, Ws, bs, J, l, accuracy, t);
-    
-    % Plot accuracy
+accuracy.train(1) = ComputeAccuracy2(X.train, y.train, Ws, bs);
+accuracy.validation(1) = ComputeAccuracy2(X.val, y.val, Ws, bs);
+accuracy.test(1) = ComputeAccuracy2(X.test, y.test, Ws, bs);
 
-    figure; 
+[Ws, bs, J, l, accuracy, t, eta] = MiniBatchGDCyclical(X, Y, y, GDParams, Ws, bs, J, l, accuracy, t);
 
-    plottitle = ["accuracy vs epoch plot, \eta=", GDParams{i}.eta_min, ", \lambda=", GDParams{i}.lambda];
+% Plot accuracy
 
-    title(join(plottitle, ""), 'Interpreter','tex');
+figure; 
 
-    hold on
-    plot(0:GDParams{i}.n_s:2*GDParams{i}.n_s*GDParams{i}.n_cycles, accuracy.train, 'LineWidth', 1.2);
-    plot(0:GDParams{i}.n_s:2*GDParams{i}.n_s*GDParams{i}.n_cycles, accuracy.validation, 'LineWidth', 1.2);
-    plot(0:GDParams{i}.n_s:2*GDParams{i}.n_s*GDParams{i}.n_cycles, accuracy.test, 'LineWidth', 1.2);
-    hold off
+plottitle = ["accuracy vs update step plot, M=", M];
 
-    legend('training accuracy', 'validation accuracy', 'test accuracy', 'Location','southeast');
+title(join(plottitle, ""), 'Interpreter','tex');
 
-    xlabel('update step');
-    ylabel('accuracy');
-    axis([0, 2*GDParams{i}.n_s*GDParams{i}.n_cycles, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
+hold on
+plot(0:GDParams.n_s/4:2*GDParams.n_s*GDParams.n_cycles, accuracy.train, 'LineWidth', 1.2);
+plot(0:GDParams.n_s/4:2*GDParams.n_s*GDParams.n_cycles, accuracy.validation, 'LineWidth', 1.2);
+plot(0:GDParams.n_s/4:2*GDParams.n_s*GDParams.n_cycles, accuracy.test, 'LineWidth', 1.2);
+hold off
 
-    plotname = ["plots/accuracy_lambda", GDParams{i}.lambda, "_etamin", GDParams{i}.eta_min, "_etamax", GDParams{i}.eta_max, ".eps"];
+legend('training accuracy', 'validation accuracy', 'test accuracy', 'Location','southeast');
 
-    saveas(gca, join(plotname, ""), 'epsc');
-    
-    close all;
-end
+xlabel('update step');
+ylabel('accuracy');
+axis([0, 2*GDParams.n_s*GDParams.n_cycles, 0.8 * min(accuracy.train), 1.1 * max(accuracy.train)]);
+
+plotname = ["plots/accuracy_M", M, "_etamin", GDParams.eta_min, "_etamax", GDParams.eta_max, ".eps"];
+
+saveas(gca, join(plotname, ""), 'epsc');
+
+close all;
+
+% Plot cost
+
+figure; 
+
+plottitle = ["cost vs update step plot, M=", M];
+
+title(join(plottitle, ""), 'Interpreter','tex');
+
+hold on
+plot(0:GDParams.n_s/4:2*GDParams.n_s*GDParams.n_cycles, J.train, 'LineWidth', 1.2);
+plot(0:GDParams.n_s/4:2*GDParams.n_s*GDParams.n_cycles, J.val, 'LineWidth', 1.2);
+plot(0:GDParams.n_s/4:2*GDParams.n_s*GDParams.n_cycles, J.test, 'LineWidth', 1.2);
+hold off
+
+legend('training accuracy', 'validation accuracy', 'test accuracy', 'Location','northeast');
+
+xlabel('update step');
+ylabel('accuracy');
+axis([0, 2*GDParams.n_s*GDParams.n_cycles, 0.8 * min(J.train), 1.1 * max(J.train)]);
+
+plotname = ["plots/cost_M", M, "_etamin", GDParams.eta_min, "_etamax", GDParams.eta_max, ".eps"];
+
+saveas(gca, join(plotname, ""), 'epsc');
+
+close all;
+

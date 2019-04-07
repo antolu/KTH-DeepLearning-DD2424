@@ -1,10 +1,8 @@
-function [Wstar, bstar, J, l, accuracy, t, eta] = MiniBatchGDCyclical(X, Y, y, GDParams, W, b, J, l, accuracy, t)
+function [Wstar, bstar, J, l, accuracy, t, eta] = MiniBatchGDCyclicalAnalyse(X, Y, y, GDParams, W, b, J, l, accuracy, t)
 
 N = size(X.train, 2);
 
 J_train = J.train; l_train = l.train;
-J_val = J.val; l_val = l.val;
-J_test = J.test; l_test = l.test;
 
 setbreak = 0;
 epoch = 0;
@@ -33,14 +31,18 @@ while 1
             Wstar(GDParams.l, :) = W;
             bstar(GDParams.l, :) = b;
             
-            accuracy.train_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.train, y.train, Wstar, bstar);
-            accuracy.validation_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.val, y.val, Wstar, bstar);
-            accuracy.test_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.test, y.test, Wstar, bstar);
+%             accuracy.train_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.train, y.train, Wstar, bstar);
+%             accuracy.validation_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.val, y.val, Wstar, bstar);
+%             accuracy.test_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.test, y.test, Wstar, bstar);
         end
         
-        if GDParams.l >= GDParams.n_cycles
+        if t >= GDParams.n_s
             setbreak = 1;
             break;
+        end
+        
+        if mod(t, 100)==0
+            t
         end
         
         if (t >= 2 * (GDParams.l) * GDParams.n_s) && (t <= (2 * (GDParams.l) + 1) * GDParams.n_s)
@@ -61,8 +63,8 @@ while 1
         H = EvaluateClassifier(Xbatch, W{1}, b{1}); H(H < 0) = 0;
         
         % Dropout
-%         U = (rand(size(H)) < p) / p;
-%         H = H .* U;
+        U = (rand(size(H)) < p) / p;
+        H = H .* U;
         
         S = EvaluateClassifier(H, W{2}, b{2});
         P = SoftMax(S);
@@ -74,24 +76,16 @@ while 1
         
         W{2} = W{2} - eta_t * gradW{2};
         b{2} = b{2} - eta_t * gradb{2};
-        
+                
+        accuracy.train(t + 1) = ComputeAccuracy2(X.train, y.train, W, b);
+        J.train(t + 1) = ComputeCost2(X.train, Y.train, W, b, GDParams.lambda);
+
         t = t + 1;
     end
     if setbreak == 1
         break;
     end
-    [l_train(epoch + 1), J_train(epoch + 1)]  = ComputeCost2(X.train, Y.train, W, b, GDParams.lambda); 
-    [l_val(epoch + 1), J_val(epoch + 1)] = ComputeCost2(X.val, Y.val, W, b, GDParams.lambda); 
-    [l_test(epoch + 1), J_test(epoch + 1)] = ComputeCost2(X.test, Y.test, W, b, GDParams.lambda); 
-
-    accuracy.train(epoch + 1) = ComputeAccuracy2(X.train, y.train, W, b);
-    accuracy.validation(epoch + 1) = ComputeAccuracy2(X.val, y.val, W, b);
-    accuracy.test(epoch + 1) = ComputeAccuracy2(X.test, y.test, W, b);
     epoch
 end
-
-J.train = J_train; l.train = l_train;
-J.val = J_val; l.val = l_val;
-J.test = J_test; l.test = l_test;
 
 end
