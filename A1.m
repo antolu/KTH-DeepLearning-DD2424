@@ -14,7 +14,7 @@ MAX_EPOCH = 40;
 
 %% Evaluate
 
-P = EvaluateClassifier(Xtrain(:, 1:100), W, b)
+P = SoftMax(EvaluateClassifier(Xtrain(:, 1:100), W, b))
 
 J = ComputeCost(Xtrain(:, 1:100), Ytrain(:, 1:100), W, b, lambda)
 

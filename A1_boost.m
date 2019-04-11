@@ -18,13 +18,13 @@ Xtrain = [Xtrain1, Xtrain2, Xtrain3, Xtrain4, Xtrain5];
 Ytrain = [Ytrain1, Ytrain2, Ytrain3, Ytrain4, Ytrain5];
 ytrain = [ytrain1; ytrain2; ytrain3; ytrain4; ytrain5];
 
-Xtrain = Xtrain(:, 1:end-1000);
-Ytrain = sparse(Ytrain(:, 1:end-1000));
-ytrain = ytrain(1:end-1000);
-
 Xval = Xtrain(:, end-999:end);
 Yval = Ytrain(:, end-999:end);
 yval = ytrain(end-999:end);
+
+Xtrain = Xtrain(:, 1:end-1000);
+Ytrain = sparse(Ytrain(:, 1:end-1000));
+ytrain = ytrain(1:end-1000);
 
 [Xtest, Ytest, ytest] = LoadBatch('test_batch.mat');
 
