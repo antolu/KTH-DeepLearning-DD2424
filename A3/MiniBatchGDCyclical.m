@@ -74,11 +74,10 @@ while 1
 
         [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, H, NetParams, GDParams.lambda);
 
-        NetParams.W{1} = NetParams.W{1} - eta_t * gradW{1};
-        NetParams.b{1} = NetParams.b{1} - eta_t * gradb{1};
-        
-        NetParams.W{2} = NetParams.W{2} - eta_t * gradW{2};
-        NetParams.b{2} = NetParams.b{2} - eta_t * gradb{2};
+        for i=1:numel(NetParams.W)
+            NetParams.W{i} = NetParams.W{i} - eta_t * gradW{i};
+            NetParams.b{i} = NetParams.b{i} - eta_t * gradb{i};
+        end
         
         t = t + 1;
     end
