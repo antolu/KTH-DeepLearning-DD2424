@@ -36,8 +36,11 @@ for i=k-1:-1:1
     gradb{i} = (1 / batchSize) * Gbatch * ones(batchSize, 1);
 end
 
-Gradients.gamma= dJdgamma;
-Gradients.beta = dJdbeta;
+if NetParams.use_bn
+    Gradients.gamma= dJdgamma;
+    Gradients.beta = dJdbeta;
+end
+
 Gradients.W = gradW;
 Gradients.b = gradb;
 

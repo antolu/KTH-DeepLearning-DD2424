@@ -4,41 +4,30 @@ BNParams = parse_inputs(varargin);
 
 k = numel(NetParams.W);
 
-% [P2, H2] = Evaluate2Layer(X, NetParams.W, NetParams.b);
-
-if BNParams.calculate_mean
-    mu = cell(1, k-1);
-    v = cell(1, k-1);
-else
-    mu = BNParams.mu;
-    v = BNParams.v;
-end
-
 S = cell(1, k-1);
-S_hat = cell(1, k-1);
-S_tilde = cell(1, k-1);
+
+if NetParams.use_bn
+    if BNParams.calculate_mean
+        mu = cell(1, k-1);
+        v = cell(1, k-1);
+    else
+        mu = BNParams.mu;
+        v = BNParams.v;
+    end
+    S_hat = cell(1, k-1);
+    S_tilde = cell(1, k-1);
+    
+    gammas = NetParams.gammas;
+    betas = NetParams.betas;
+end
 
 H = cell(1, k);
 H{1} = X;
-
-% if calculateShift
-%     gammas = cell(1, k-1);
-%     betas = cell(1, k-1);
-% else
-    gammas = NetParams.gammas;
-    betas = NetParams.betas;
-% end
-
 
 for i=1:k-1
     S{i} = EvaluateClassifier(H{i}, NetParams.W{i}, NetParams.b{i}); 
 
     if NetParams.use_bn
-
-%             if calculateShift
-%                 gammas{i} = sqrt(var(S, 0, 2) * (size(S, 2) - 1) / size(S, 2) ); 
-%                 betas{i} = mean(S, 2); 
-%             end
 
         if BNParams.calculate_mean
             mu{i} = mean(S{i}, 2);
@@ -61,19 +50,17 @@ end
 P = SoftMax(EvaluateClassifier(H{end}, NetParams.W{end}, NetParams.b{end}));
 
 H = H(2:end);
-
-BNParams.mu = mu;
-BNParams.v = v;
-
-% if calculateShift
-%     BNParams.gammas = gammas;
-%     BNParams.betas = betas;
-% end
-
 BNParams.X = H;
-BNParams.S = S;
-BNParams.S_hat = S_hat;
-BNParams.S_tilde = S_tilde;
+
+if NetParams.use_bn
+    BNParams.mu = mu;
+    BNParams.v = v;
+
+    BNParams.S = S;
+    BNParams.S_hat = S_hat;
+    BNParams.S_tilde = S_tilde;
+end
+
 
 end
 

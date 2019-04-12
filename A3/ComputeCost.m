@@ -13,7 +13,7 @@ l = l / numberOfSamples;
 regularisation = 0;
 
 for i=1:max(size(NetParams.W))
-    regularisation = regularisation + sum(sum(NetParams.W{i}));
+    regularisation = regularisation + sum(sum(NetParams.W{i}.^2));
 end
 
 regularisation = lambda * regularisation;
