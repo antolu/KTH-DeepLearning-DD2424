@@ -11,18 +11,18 @@ Ytrain = [Ytrain1, Ytrain2, Ytrain3, Ytrain4, Ytrain5];
 ytrain = [ytrain1; ytrain2; ytrain3; ytrain4; ytrain5];
 
 % Shuffle data
-random = randperm(size(Xtrain,2));
-Xtrain = Xtrain(:, random);
-Ytrain = Ytrain(:, random);
-ytrain = ytrain(random, :);
+% random = randperm(size(Xtrain,2));
+% Xtrain = Xtrain(:, random);
+% Ytrain = Ytrain(:, random);
+% ytrain = ytrain(random, :);
 
-Xval = Xtrain(:, end-4999:end);
-Yval = Ytrain(:, end-4999:end);
-yval = ytrain(end-4999:end);
+Xval = Xtrain(:, end-999:end);
+Yval = Ytrain(:, end-999:end);
+yval = ytrain(end-999:end);
 
-Xtrain = Xtrain(:, 1:end-5000);
-Ytrain = sparse(Ytrain(:, 1:end-5000));
-ytrain = ytrain(1:end-5000);
+Xtrain = Xtrain(:, 1:end-1000);
+Ytrain = sparse(Ytrain(:, 1:end-1000));
+ytrain = ytrain(1:end-1000);
 
 [Xtest, Ytest, ytest] = LoadBatchZeroMean('test_batch.mat');
 
@@ -33,49 +33,54 @@ y.train = ytrain; y.val = yval; y.test = ytest;
 %% Initialize W, b
 
 D = size(Xtrain, 1);
+% D = 100;
 C = 10;
 % M = [50, 40, 10];
 M = [50, 50];
 % M = [50, 30, 20, 20, 10, 10, 10, 10];
 
 % rng(400);
-[W, b] = XavierInitialise(C, D, M);
+[W, b] = Initialise(C, D, M, 'Initialisation', 'he');
+% [W, b] = Initialise(C, D, M, 'Initialisation', 'uniform', 'Sigma', 0.001);
 
 NetParams.W = W;
 NetParams.b = b;
 
 NetParams.use_dropout = 0;
 NetParams.P = 0.8;
-NetParams.alpha = 0.7;
+NetParams.alpha = 0.9;
 
 NetParams.gammas = cell(1, numel(M));
 NetParams.betas = cell(1, numel(M));
-NetParams.use_bn = 1;
+NetParams.use_bn = 0;
+% NetParams.use_bn = 1;
 
 for i=1:numel(M)
-    NetParams.gammas{i} = 1/sqrt(M(i)) * randn(M(i), 1);
+    NetParams.gammas{i} = ones(M(i), 1);
     NetParams.betas{i} = zeros(M(i), 1);
 end
 
-lambda = 0;
+lambda = 0.1;
 
 %% Check numerical gradient
 
 % [P, H] = EvaluatekLayer(X.train(:, 1:10), NetParams);
     
-% H = EvaluateClassifier(Xtrain(:, 1:100), W{1}, b{1})
-% H(H < 0) = 0;
-% P = SoftMax(EvaluateClassifier(H, W{2}, b{2}))
+% Hp = EvaluateClassifier(Xtrain(1:100, 1:10), W{1}, b{1});
+% Hp(Hp < 0) = 0;
+% P2 = SoftMax(EvaluateClassifier(Hp, W{2}, b{2}));
+% 
+% H2 = {Hp};
+% 
+% [gradW, gradb] = ComputeGradients2(X.train(1:100, 1:10), Y.train(:, 1:10), P2, H2, W, lambda);
 
-% [gradW, gradb] = ComputeGradients(X.train(:, 1:10), Y.train(:, 1:10), P, H, NetParams, lambda);
+[P, BNParams] = ForwardPass(X.train, NetParams);
+% J = ComputeCost(X.train(1:100, 1:10), Y.train(:, 1:10), NetParams, lambda, 'BNParams', BNParams)
 
-[P, BNParams] = ForwardPass(X.train(:, 1:10), NetParams);
-J = ComputeCost(X.train(:, 1:10), Y.train(:, 1:10), NetParams, lambda, 'BNParams', BNParams)
-
-Grads = BackwardPass(X.train(:, 1:10), Y.train(:, 1:10), P, BNParams.X, NetParams, lambda, 'BNParams', BNParams);
+Grads = BackwardPass(X.train(1:100, 1:10), Y.train(:, 1:10), P, BNParams.X, NetParams, lambda, 'BNParams', BNParams);
 % [gradW2, gradb2] = ComputeGradients2(X.train(:, 1:10), Y.train(:, 1:10), P, H, NetParams.W, lambda);
 
-NGrads = ComputeGradsNumSlow(X.train(:, 1:10), Y.train(:, 1:10), NetParams, lambda, 1e-6);
+NGrads = ComputeGradsNumSlow(X.train(1:100, 1:10), Y.train(:, 1:10), NetParams, lambda, 1e-6);
 % [ngradb, ngradW] = ComputeGradsNum(Xtrain(:, 1:10), Ytrain(:, 1:10), NetParams.W, NetParams.b, lambda, 1e-6);
 
 for i=1:max(numel(Grads.W))
@@ -92,7 +97,7 @@ end
 
 %% 
 
-clear J
+clear J accuracy
 
 GDParams.n_cycles = 2;
 % GDParams.eta_min = 0.000600994000000000;

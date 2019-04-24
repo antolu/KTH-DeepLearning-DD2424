@@ -13,18 +13,19 @@ b = cell(1, k);
 
 if strcmp(initialisation, 'xavier')
     for i=1:k
-        W{i} = 1/sqrt(dimensions(i)) * randn(dimensions(i+1), dimensions(i));
-        b{i} = zeros(dimensions(i+1), 1);
+        W{i} = 1/sqrt(dimensions(i)) * randn(dimensions(i), dimensions(i+1))';
+        b{i} = zeros(1, dimensions(i+1))';
     end
 elseif strcmp(initialisation, 'he')
     for i=1:k
-        W{i} = sqrt(2/dimensions(i)) * randn(dimensions(i+1), dimensions(i));
-        b{i} = zeros(dimensions(i+1), 1);
+        W{i} = sqrt(2/dimensions(i)) * randn(dimensions(i), dimensions(i+1))';
+        b{i} = zeros(1, dimensions(i+1))';
     end
 elseif strcmp(initialisation, 'uniform')
     for i=1:k
         W{i} = sigma * randn(dimensions(i+1), dimensions(i));
-        b{i} = sigma * rand(dimensions(i+1), 1);
+        b{i} = zeros(dimensions(i+1), 1)';
+%         b{i} = sigma * rand(dimensions(i+1), 1);
     end
 else
     error("Unrecognised option");
@@ -35,7 +36,7 @@ end
 function [initialisation, sigma] = parse_inputs(inputs)
 
 % Set defaults
-initialisation = 'uniform';
+initialisation = 'normal';
 sigma = 0.01;
 
 % Go through option pairs

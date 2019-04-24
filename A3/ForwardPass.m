@@ -1,6 +1,7 @@
 function [P, BNParams] = ForwardPass(X, NetParams, varargin) 
 
 BNParams = parse_inputs(varargin);
+batchSize = size(X, 2);
 
 k = numel(NetParams.W);
 
@@ -31,7 +32,8 @@ for i=1:k-1
 
         if BNParams.calculate_mean
             mu{i} = mean(S{i}, 2);
-            v{i} = var(S{i}, 0, 2) * (size(S{i}, 2) - 1) / size(S{i}, 2);
+            v{i} = sum((S{i} - mu{i}).^2, 2) / batchSize;
+%             v{i} = var(S{i}, 0, 2) * (size(S{i}, 2) - 1) / size(S{i}, 2);
         end
 
         S_hat{i} = BatchNormalise(S{i}, mu{i}, v{i});

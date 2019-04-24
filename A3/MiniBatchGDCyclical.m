@@ -5,8 +5,6 @@ N = size(X.train, 2);
 setbreak = 0;
 epoch = 0;
 
-ALPHA = 0.9;
-
 Wstar = cell(GDParams.n_cycles, numel(NetParams.W));
 bstar = cell(GDParams.n_cycles, numel(NetParams.b));
 
@@ -86,13 +84,15 @@ while 1
                 NetParams.betas{i} = NetParams.betas{i} - eta_t * Grads.beta{i};
             end
         else
-            [P, H] = EvaluatekLayer(Xbatch, NetParams);
+%             [P, H] = EvaluatekLayer(Xbatch, NetParams);
+            [P, BNParams] = ForwardPass(Xbatch, NetParams);
             
-            [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, H, NetParams, GDParams.lambda);
-            
+%             [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, BNParams.X, NetParams, GDParams.lambda);
+            Grads = BackwardPass(Xbatch, Ybatch, P, BNParams.X, NetParams, GDParams.lambda, 'BNParams', BNParams);
+
             for i=1:numel(NetParams.W)
-                NetParams.W{i} = NetParams.W{i} - eta_t * gradW{i};
-                NetParams.b{i} = NetParams.b{i} - eta_t * gradb{i};
+                NetParams.W{i} = NetParams.W{i} - eta_t * Grads.W{i};
+                NetParams.b{i} = NetParams.b{i} - eta_t * Grads.b{i};
             end
         end
         

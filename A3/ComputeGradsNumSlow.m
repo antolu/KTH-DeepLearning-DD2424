@@ -14,12 +14,12 @@ for j=1:length(NetParams.b)
         b_try = NetParams.b;
         b_try{j}(i) = b_try{j}(i) - h;
         NetTry.b = b_try;
-        c1 = ComputeCost(X, Y, NetTry, lambda);        
+        [~, c1] = ComputeCost(X, Y, NetTry, lambda);        
         
         b_try = NetParams.b;
         b_try{j}(i) = b_try{j}(i) + h;
         NetTry.b = b_try;        
-        c2 = ComputeCost(X, Y, NetTry, lambda);
+        [~, c2] = ComputeCost(X, Y, NetTry, lambda);
         
         Grads.b{j}(i) = (c2-c1) / (2*h);
     end
@@ -33,12 +33,12 @@ for j=1:length(NetParams.W)
         W_try = NetParams.W;
         W_try{j}(i) = W_try{j}(i) - h;
         NetTry.W = W_try;        
-        c1 = ComputeCost(X, Y, NetTry, lambda);
+        [~, c1] = ComputeCost(X, Y, NetTry, lambda);
     
         W_try = NetParams.W;
         W_try{j}(i) = W_try{j}(i) + h;
         NetTry.W = W_try;        
-        c2 = ComputeCost(X, Y, NetTry, lambda);
+        [~, c2] = ComputeCost(X, Y, NetTry, lambda);
     
         Grads.W{j}(i) = (c2-c1) / (2*h);
     end
@@ -53,12 +53,12 @@ if NetParams.use_bn
             gammas_try = NetParams.gammas;
             gammas_try{j}(i) = gammas_try{j}(i) - h;
             NetTry.gammas = gammas_try;        
-            c1 = ComputeCost(X, Y, NetTry, lambda);
+            [~, c1] = ComputeCost(X, Y, NetTry, lambda);
             
             gammas_try = NetParams.gammas;
             gammas_try{j}(i) = gammas_try{j}(i) + h;
             NetTry.gammas = gammas_try;        
-            c2 = ComputeCost(X, Y, NetTry, lambda);
+            [~, c2] = ComputeCost(X, Y, NetTry, lambda);
             
             Grads.gammas{j}(i) = (c2-c1) / (2*h);
         end
@@ -72,12 +72,12 @@ if NetParams.use_bn
             betas_try = NetParams.betas;
             betas_try{j}(i) = betas_try{j}(i) - h;
             NetTry.betas = betas_try;        
-            c1 = ComputeCost(X, Y, NetTry, lambda);
+            [~, c1] = ComputeCost(X, Y, NetTry, lambda);
             
             betas_try = NetParams.betas;
             betas_try{j}(i) = betas_try{j}(i) + h;
             NetTry.betas = betas_try;        
-            c2 = ComputeCost(X, Y, NetTry, lambda);
+            [~, c2] = ComputeCost(X, Y, NetTry, lambda);
             
             Grads.betas{j}(i) = (c2-c1) / (2*h);
         end

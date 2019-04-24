@@ -3,8 +3,8 @@ function Gradients = BackwardPass(X, Y, P, H, NetParams, lambda, varargin)
 BNParams = parse_inputs(varargin);
 
 batchSize = size(X, 2);
-k = max(size(NetParams.W));
-H = {{X}; H}; H = cat(2, H{:});
+k = numel(NetParams.W);
+% H = {{X}; H}; H = cat(2, H{:});
 
 gradW = cell(1, max(k));
 gradb = cell(1, max(k));
@@ -17,23 +17,36 @@ dLdb = (1 / batchSize) * Gbatch * ones(batchSize, 1);
 gradW{end} = dLdW + 2 * lambda * NetParams.W{end};
 gradb{end} = dLdb;
 
-for i=k-1:-1:1
-    Gbatch = NetParams.W{i+1}' * Gbatch;
-    Ind = H{i+1};
-    Ind(Ind>0) = 1;
-    Gbatch = Gbatch .* Ind;
+Gbatch = NetParams.W{end}' * Gbatch;
+Ind = H{end}; Ind(Ind>0) = 1;
+Gbatch = Gbatch .* Ind;
+
+for l=k-1:-1:1
     
     if NetParams.use_bn
-        dJdgamma{i} = (1 / batchSize) * (Gbatch .* BNParams.S_hat{i}) * ones(batchSize, 1);
-        dJdbeta{i} = (1 / batchSize) * Gbatch * ones(batchSize, 1);
+        dJdgamma{l} = (1 / batchSize) * (Gbatch .* BNParams.S_hat{l}) * ones(batchSize, 1);
+        dJdbeta{l} = (1 / batchSize) * Gbatch * ones(batchSize, 1);
 
-        Gbatch = Gbatch .* (NetParams.gammas{i} * ones(1, batchSize));
+        Gbatch = Gbatch .* (NetParams.gammas{l} * ones(1, batchSize));
         
-        Gbatch = BatchNormBackPass(Gbatch, BNParams.S{i}, BNParams.mu{i}, BNParams.v{i});
+        Gbatch = BatchNormBackPass(Gbatch, BNParams.S{l}, BNParams.mu{l}, BNParams.v{l});
     end
     
-    gradW{i} = (1 / batchSize) * Gbatch * H{i}' + 2 * lambda * NetParams.W{i};
-    gradb{i} = (1 / batchSize) * Gbatch * ones(batchSize, 1);
+    if l == 1
+        gradW{1} = (1 / batchSize) * Gbatch * X' + 2 * lambda * NetParams.W{1};
+        gradb{1} = (1 / batchSize) * Gbatch * ones(batchSize, 1);
+    else
+        gradW{l} = (1 / batchSize) * Gbatch * H{l-1}' + 2 * lambda * NetParams.W{l};
+        gradb{l} = (1 / batchSize) * Gbatch * ones(batchSize, 1);
+    end
+    
+    if l>1
+        Gbatch = NetParams.W{l}' * Gbatch;
+        Ind = H{l-1}; Ind(Ind>0) = 1;
+        Gbatch = Gbatch .* Ind;
+    else
+        break
+    end
 end
 
 if NetParams.use_bn
@@ -52,7 +65,7 @@ function [Gbatch] = BatchNormBackPass(Gbatch, S, mu, v)
 
 n = size(Gbatch, 2);
 
-sigma1 = ((v+eps).^(-1/2));
+sigma1 = ((v+eps).^(-0.5));
 sigma2 = ((v+eps).^(-1.5));
 
 G1 = Gbatch .*(sigma1 * ones(1, n));
