@@ -2,13 +2,8 @@ function [Wstar, bstar, J, l, accuracy, t, eta] = MiniBatchGDCyclical(X, Y, y, G
 
 N = size(X.train, 2);
 
-J_train = J.train; l_train = l.train;
-J_val = J.val; l_val = l.val;
-J_test = J.test; l_test = l.test;
-
 setbreak = 0;
 epoch = 0;
-p = 0.8;
 
 Wstar = cell(GDParams.n_cycles, numel(NetParams.W));
 bstar = cell(GDParams.n_cycles, numel(NetParams.b));
@@ -33,12 +28,13 @@ while 1
             Wstar(GDParams.l, :) = NetParams.W;
             bstar(GDParams.l, :) = NetParams.b;
             
-            Params.W = Wstar;
-            Params.b = bstar;
+            NetParams.Wstar = Wstar;
+            NetParams.bstar = bstar;
             
-            accuracy.train_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.train, y.train, Params);
-            accuracy.validation_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.val, y.val, Params);
-            accuracy.test_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.test, y.test, Params);
+            BNParams.calculate_mean = 0;
+%             accuracy.train_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.train, y.train, NetParams, 'BNParams', BNParams);
+%             accuracy.validation_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.val, y.val, NetParams, 'BNParams', BNParams);
+%             accuracy.test_ensemble(GDParams.l) = ComputeMajorityVoteAccuracy(X.test, y.test, NetParams, 'BNParams', BNParams);
         end
         
         if GDParams.l >= GDParams.n_cycles
@@ -61,42 +57,77 @@ while 1
         Xbatch = X.train(:, inds);
         Ybatch = Y.train(:, inds);
         
-        [P, H] = EvaluatekLayer(Xbatch, NetParams);
+        if NetParams.use_bn
+            [P, BNParams] = ForwardPass(Xbatch, NetParams);
+            
+            if exist('mu_av', 'var') == 1
+                for i=1:numel(mu_av)
+                    mu_av{i} = NetParams.alpha * mu_av{i} + (1 - NetParams.alpha) * BNParams.mu{i};
+                    v_av{i} = NetParams.alpha * v_av{i} + (1 - NetParams.alpha) * BNParams.v{i};
+                end
+            else
+                mu_av = BNParams.mu;
+                v_av = BNParams.v;
+            end
+            
+            BNParams.calculate_mean = 0;
+            
+            Grads = BackwardPass(Xbatch, Ybatch, P, BNParams.X, NetParams, GDParams.lambda, 'BNParams', BNParams);
+            
+            for i=1:numel(NetParams.W)
+                NetParams.W{i} = NetParams.W{i} - eta_t * Grads.W{i};
+                NetParams.b{i} = NetParams.b{i} - eta_t * Grads.b{i};
+            end
+            
+            for i=1:numel(NetParams.W)-1
+                NetParams.gammas{i} = NetParams.gammas{i} - eta_t * Grads.gamma{i};
+                NetParams.betas{i} = NetParams.betas{i} - eta_t * Grads.beta{i};
+            end
+        else
+%             [P, H] = EvaluatekLayer(Xbatch, NetParams);
+            [P, BNParams] = ForwardPass(Xbatch, NetParams);
+            
+%             [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, BNParams.X, NetParams, GDParams.lambda);
+            Grads = BackwardPass(Xbatch, Ybatch, P, BNParams.X, NetParams, GDParams.lambda, 'BNParams', BNParams);
 
-%         H = EvaluateClassifier(Xbatch, W{1}, b{1}); H(H < 0) = 0;
+            for i=1:numel(NetParams.W)
+                NetParams.W{i} = NetParams.W{i} - eta_t * Grads.W{i};
+                NetParams.b{i} = NetParams.b{i} - eta_t * Grads.b{i};
+            end
+        end
         
         % Dropout
-%         U = (rand(size(H)) < p) / p;
-%         H = H .* U;
-        
-%         S = EvaluateClassifier(H, W{2}, b{2});
-%         P = SoftMax(S);
-
-        [gradW, gradb] = ComputeGradients(Xbatch, Ybatch, P, H, NetParams, GDParams.lambda);
-
-        for i=1:numel(NetParams.W)
-            NetParams.W{i} = NetParams.W{i} - eta_t * gradW{i};
-            NetParams.b{i} = NetParams.b{i} - eta_t * gradb{i};
-        end
+%         if NetParams.use_dropout
+%             U = (rand(size(H)) < NetParams.P) / NetParams.P;
+%             H = H .* U;
+% 
+%             S = EvaluateClassifier(H, W{2}, b{2});
+%             P = SoftMax(S);
+%         end
         
         t = t + 1;
     end
     if setbreak == 1
         break;
     end
+    
+    if NetParams.use_bn
+        clear BNParams;
+        BNParams.calculate_mean = 0;
+        BNParams.mu = mu_av;
+        BNParams.v = v_av;
+    else
+        BNParams.calculate_mean = 1;
+    end
 
-    [l_train(epoch + 1), J_train(epoch + 1)]  = ComputeCost(X.train, Y.train, NetParams, GDParams.lambda); 
-    [l_val(epoch + 1), J_val(epoch + 1)] = ComputeCost(X.val, Y.val, NetParams, GDParams.lambda); 
-    [l_test(epoch + 1), J_test(epoch + 1)] = ComputeCost(X.test, Y.test, NetParams, GDParams.lambda); 
+%     [l.train(epoch + 1), J.train(epoch + 1)]  = ComputeCost(X.train, Y.train, NetParams, GDParams.lambda, 'BNParams', BNParams); 
+%     [l.val(epoch + 1), J.val(epoch + 1)] = ComputeCost(X.val, Y.val, NetParams, GDParams.lambda, 'BNParams', BNParams); 
+%     [l.test(epoch + 1), J.test(epoch + 1)] = ComputeCost(X.test, Y.test, NetParams, GDParams.lambda, 'BNParams', BNParams); 
 
-    accuracy.train(epoch + 1) = ComputeAccuracy(X.train, y.train, NetParams);
-    accuracy.validation(epoch + 1) = ComputeAccuracy(X.val, y.val, NetParams);
-    accuracy.test(epoch + 1) = ComputeAccuracy(X.test, y.test, NetParams);
+    accuracy.train(epoch + 1) = ComputeAccuracy(X.train, y.train, NetParams, 'BNParams', BNParams);
+    accuracy.validation(epoch + 1) = ComputeAccuracy(X.val, y.val, NetParams, 'BNParams', BNParams);
+    accuracy.test(epoch + 1) = ComputeAccuracy(X.test, y.test, NetParams, 'BNParams', BNParams);
     epoch
 end
-
-J.train = J_train; l.train = l_train;
-J.val = J_val; l.val = l_val;
-J.test = J_test; l.test = l_test;
 
 end
