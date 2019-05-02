@@ -18,7 +18,7 @@ end
 
 %% Set hyperparameters
 
-M = 5;
+M = 100;
 seq_length = 25;
 eta = 0.1;
 sig = 0.01;
@@ -44,19 +44,37 @@ Y = OneHotRepresentation(char_to_ind, Y_chars);
 
 %% Compare numerical gradient
 
-[P, H, a] = ForwardPass(X, Y, RNN, h0);
+[P, H, a, l] = ForwardPass(X, Y, RNN, h0);
 L = ComputeLoss(X, Y, RNN, h0);
 Grads = BackwardPass(RNN, P, H, a, X, Y);
 
 %%
 
-NGrads = ComputeGradsNum(X, Y, RNN, 1e-4);
+% NGrads = ComputeGradsNum(X, Y, RNN, 1e-6);
 
 %% Correlation
 
-for f = fieldnames(RNN)'
-    correlation.(f{1}) = sum(abs(NGrads.(f{1}) - Grads.(f{1}))) / max(1e-6, sum(abs(NGrads.(f{1}))) + sum(abs(Grads.(f{1}))));
+% for f = fieldnames(RNN)'
+%     correlation.(f{1}) = sum(abs(NGrads.(f{1}) - Grads.(f{1}))) / max(1e-6, sum(abs(NGrads.(f{1}))) + sum(abs(Grads.(f{1}))));
+% end
+
+%% Clip gradients
+
+for f = fieldnames(Grads)'
+    Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
 end
+
+%% Run SGD
+
+SGDParams.seq_length = seq_length;
+SGDParams.h0 = h0;
+SGDParams.char_to_ind = char_to_ind;
+SGDParams.ind_to_char = ind_to_char;
+SGDParams.book_data = book_data;
+SGDParams.eta = eta;
+SGDParams.n_epochs = 10;
+
+RNN = SGD(RNN, SGDParams);
 
 %%
 
@@ -88,9 +106,9 @@ function seq = SyntesizeSequence(RNN, h0, x0, n)
 
 end
 
-function [p, h, a] = ForwardPass(X, Y, RNN, h0)
+function [p, h, a, l] = ForwardPass(X, Y, RNN, h0)
     seq_length = size(X, 2);
-    a = cell(seq_length, 1); h = cell(seq_length+1, 1); x = cell(seq_length+1, 1); 
+    a = cell(seq_length, 1); h = cell(seq_length+1, 1); 
     o = cell(seq_length, 1); p = cell(seq_length, 1);
     
     h{1} = h0; 
@@ -100,6 +118,11 @@ function [p, h, a] = ForwardPass(X, Y, RNN, h0)
         h{t+1} = tanh(a{t});
         o{t} = RNN.V * h{t+1} + RNN.c;
         p{t} = SoftMax(o{t});
+    end
+
+    l = 0;
+    for t=1:seq_length
+        l = l - log(Y(:, t)' * p{t});
     end
 end
 
@@ -111,11 +134,11 @@ function L = ComputeLoss(X, Y, RNN, h0)
 
     seq_length = size(X, 2);
 
-    [p, ~, ~] = ForwardPass(X, Y, RNN, h0);
+    [p, ~, ~, l] = ForwardPass(X, Y, RNN, h0);
 
     L = 0;
     for t=1:seq_length
-        L = L -log(sum(Y(:, t) .* p{t}));
+        L = L - log(Y(:, t)' * p{t});
     end
         
 end
@@ -128,8 +151,8 @@ function Grads = BackwardPass(RNN, P, H, a, Y, X)
     dLdh = cell(1, seq_length);
     dLda = cell(1, seq_length);
 
-    for i=1:seq_length
-        dLdo{i} = -(Y(:, i) - P{i})';
+    for t=1:seq_length
+        dLdo{t} = -(Y(:, t) - P{t})';
     end
 
     dLdh{seq_length} = dLdo{seq_length} * RNN.V;
@@ -147,7 +170,7 @@ function Grads = BackwardPass(RNN, P, H, a, Y, X)
 
     dLdc = zeros(K, 1);
     for t=1:seq_length
-        dLdc = dLdc + dLdo{i}';
+        dLdc = dLdc + dLdo{t}';
     end
 
     dLdW = zeros(M, M);
@@ -157,7 +180,7 @@ function Grads = BackwardPass(RNN, P, H, a, Y, X)
 
     dLdU = zeros(M, K);
     for t=1:seq_length
-        dLdU = dLdU + dLda{t}' * X(:, i)';
+        dLdU = dLdU + dLda{t}' * X(:, t)';
     end
 
     dLdb = zeros(M, 1);
@@ -221,4 +244,52 @@ function grad = ComputeGradNumSlow(X, Y, f, RNN, h)
         l2 = ComputeLoss(X, Y, RNN_try, hprev);
         grad(i) = (l2-l1)/(2*h);
     end
+end
+
+function Grads = ClipGradients(Grads)
+    for f = fieldnames(Grads)'
+        Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
+    end
+end
+
+function RNN = SGD(RNN, SGDParams)
+
+    for epoch=1:SGDParams.n_epochs
+        hprev = SGDParams.h0; 
+        clear m;
+    
+        % Initialise momentum
+        for f = fieldnames(RNN)'
+            m.(f{1}){1} = 0;
+        end
+    
+        for i=floor(1:size(SGDParams.book_data, 2)/SGDParams.seq_length)
+            X_chars = SGDParams.book_data(SGDParams.seq_length*(i-1)+1:SGDParams.seq_length*i);
+            Y_chars = SGDParams.book_data(SGDParams.seq_length*(i-1)+2:SGDParams.seq_length*i + 1);
+            X = OneHotRepresentation(SGDParams.char_to_ind, X_chars);
+            Y = OneHotRepresentation(SGDParams.char_to_ind, Y_chars);
+
+            [P, H, a, l] = ForwardPass(X, Y, RNN, hprev);
+            Grads = BackwardPass(RNN, P, H, a, X, Y);
+
+            Grads = ClipGradients(Grads);
+
+            for f = fieldnames(Grads)'
+                m.(f{1}){i+1} = m.(f{1}){i} + Grads.(f{1}).^2;
+                RNN.(f{1}) = RNN.(f{1}) - (SGDParams.eta ./ sqrt(m.(f{1}){i+1} + eps)) .* Grads.(f{1});
+            end
+
+            if exist('smooth_loss', 'var')
+                smooth_loss = 0.999 * smooth_loss + 0.001 * l;
+            else
+                smooth_loss = l;
+            end
+
+            hprev = H{end};
+            if mod(i, 100) == 0
+                disp(smooth_loss)
+            end
+        end
+    end
+
 end
