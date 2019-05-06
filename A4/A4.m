@@ -2,7 +2,7 @@
 
 addpath data
 book_fname = "goblet_book.txt";
-fid = fopen(book_fname, 'r');
+fid = fopen(book_fname, 'r', 'n', 'UTF-8');
 book_data = fscanf(fid, '%c');
 
 book_chars = unique(book_data);
@@ -50,19 +50,19 @@ Grads = BackwardPass(RNN, P, H, a, X, Y);
 
 %%
 
-% NGrads = ComputeGradsNum(X, Y, RNN, 1e-6);
+NGrads = ComputeGradsNum(X, Y, RNN, 1e-6);
 
 %% Correlation
 
-% for f = fieldnames(RNN)'
-%     correlation.(f{1}) = sum(abs(NGrads.(f{1}) - Grads.(f{1}))) / max(1e-6, sum(abs(NGrads.(f{1}))) + sum(abs(Grads.(f{1}))));
-% end
+for f = fieldnames(RNN)'
+    correlation.(f{1}) = sum(abs(NGrads.(f{1}) - Grads.(f{1}))) / max(1e-6, sum(abs(NGrads.(f{1}))) + sum(abs(Grads.(f{1}))));
+end
 
 %% Clip gradients
 
-for f = fieldnames(Grads)'
-    Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
-end
+% for f = fieldnames(Grads)'
+%     Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
+% end
 
 %% Run SGD
 
@@ -74,7 +74,7 @@ SGDParams.book_data = book_data;
 SGDParams.eta = eta;
 SGDParams.n_epochs = 10;
 
-RNN = SGD(RNN, SGDParams);
+% RNN = SGD(RNN, SGDParams);
 
 %%
 
@@ -106,6 +106,7 @@ function seq = SyntesizeSequence(RNN, h0, x0, n)
 
 end
 
+
 function [p, h, a, l] = ForwardPass(X, Y, RNN, h0)
     seq_length = size(X, 2);
     a = cell(seq_length, 1); h = cell(seq_length+1, 1); 
@@ -126,6 +127,7 @@ function [p, h, a, l] = ForwardPass(X, Y, RNN, h0)
     end
 end
 
+
 function L = ComputeLoss(X, Y, RNN, h0)
     %ComputeLoss - Computes the cross-entropy loss
     %
@@ -142,6 +144,7 @@ function L = ComputeLoss(X, Y, RNN, h0)
     end
         
 end
+
 
 function Grads = BackwardPass(RNN, P, H, a, Y, X)
     seq_length = numel(H)-1;
@@ -188,19 +191,21 @@ function Grads = BackwardPass(RNN, P, H, a, Y, X)
         dLdb = dLdb + dLda{t}';
     end
 
-    Grads.V = dLdV;
-    Grads.c = dLdc;
-    Grads.W = dLdW;
-    Grads.U = dLdU;
     Grads.b = dLdb;
+    Grads.c = dLdc;
+    Grads.U = dLdU;
+    Grads.W = dLdW;
+    Grads.V = dLdV;
 
 end
+
 
 function P = SoftMax(s)
 
     P = exp(s) ./ (sum(exp(s)));
     
 end
+
 
 function txt = SequenceToText(ind_to_char, charseq)
     txt = char(zeros(1, numel(charseq)));
@@ -209,6 +214,7 @@ function txt = SequenceToText(ind_to_char, charseq)
         txt(i) = ind_to_char(charseq(i));
     end
 end
+
 
 function onehot = OneHotRepresentation(char_to_ind, X)
     K = size(char_to_ind, 1);
@@ -230,7 +236,8 @@ function num_grads = ComputeGradsNum(X, Y, RNN, h)
         num_grads.(f{1}) = ComputeGradNumSlow(X, Y, f{1}, RNN, h);
     end
 end
-    
+
+
 function grad = ComputeGradNumSlow(X, Y, f, RNN, h)
     
     n = numel(RNN.(f));
@@ -246,11 +253,13 @@ function grad = ComputeGradNumSlow(X, Y, f, RNN, h)
     end
 end
 
+
 function Grads = ClipGradients(Grads)
     for f = fieldnames(Grads)'
         Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
     end
 end
+
 
 function RNN = SGD(RNN, SGDParams)
 
