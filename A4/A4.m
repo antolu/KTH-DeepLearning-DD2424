@@ -20,7 +20,7 @@ end
 
 M = 100;
 seq_length = 25;
-eta = 0.1;
+eta = 0.001;
 sig = 0.01;
 
 RNN.b = zeros(M, 1);
@@ -73,8 +73,9 @@ SGDParams.ind_to_char = ind_to_char;
 SGDParams.book_data = book_data;
 SGDParams.eta = eta;
 SGDParams.n_epochs = 10;
+SGDParams.gamma = 0.9;
 
-RNN = SGD(RNN, SGDParams);
+% RNN = SGD(RNN, SGDParams);
 
 %%
 
@@ -275,8 +276,9 @@ function RNN = SGD(RNN, SGDParams)
             Grads = ClipGradients(Grads);
 
             for f = fieldnames(Grads)'
-                m.(f{1}){i+1} = m.(f{1}){i} + Grads.(f{1}).^2;
-                RNN.(f{1}) = RNN.(f{1}) - (SGDParams.eta ./ sqrt(m.(f{1}){i+1} + eps)) .* Grads.(f{1});
+                m.(f{1}){i+1} = SGDParams.gamma * m.(f{1}){i} + (1 - SGDParams.gamma) * Grads.(f{1}).^2;
+                eta = SGDParams.eta ./ sqrt(m.(f{1}){i+1} + eps);
+                RNN.(f{1}) = RNN.(f{1}) - eta .* Grads.(f{1});
             end
 
             if exist('smooth_loss', 'var')
