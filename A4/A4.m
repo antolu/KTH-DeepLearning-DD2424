@@ -20,21 +20,22 @@ end
 
 M = 100;
 seq_length = 25;
-eta = 0.001;
-sig = 0.01;
+eta = 0.1;
+sig = 0.1;
 
+rng(400);
 RNN.b = zeros(M, 1);
 RNN.c = zeros(K, 1);
 RNN.U = randn(M, K) * sig;
 RNN.W = randn(M, M) * sig;
 RNN.V = randn(K, M) * sig;
 
-h0 = zeros(M, 1); % h(3) = 1;
-x0 = zeros(K, 1); x(23) = 1;
+h0 = zeros(M, 1); 
+% x0 = zeros(K, 1); x(23) = 1;
 
-seq = SyntesizeSequence(RNN, h0, x0, 25);
+% seq = SyntesizeSequence(RNN, h0, x0, 25);
 
-txt = SequenceToText(ind_to_char, seq);
+% txt = SequenceToText(ind_to_char, seq);
 
 X_chars = book_data(1:seq_length);
 Y_chars = book_data(2:seq_length+1);
@@ -45,16 +46,16 @@ Y = OneHotRepresentation(char_to_ind, Y_chars);
 %% Compare numerical gradient
 
 [P, H, a, l] = ForwardPass(X, Y, RNN, h0);
-L = ComputeLoss(X, Y, RNN, h0);
+% L = ComputeLoss(X, Y, RNN, h0);
 Grads = BackwardPass(RNN, P, H, a, X, Y);
 
 %%
 
-NGrads = ComputeGradsNum(X, Y, RNN, 1e-6);
+NGrads = ComputeGradsNum(X, Y, RNN, 1e-4);
 
 %% Correlation
 
-for f = fieldnames(RNN)'
+for f = fieldnames(Grads)'
     correlation.(f{1}) = sum(abs(NGrads.(f{1}) - Grads.(f{1}))) / max(1e-6, sum(abs(NGrads.(f{1}))) + sum(abs(Grads.(f{1}))));
 end
 
@@ -75,7 +76,7 @@ SGDParams.eta = eta;
 SGDParams.n_epochs = 10;
 SGDParams.gamma = 0.9;
 
-% RNN = SGD(RNN, SGDParams);
+RNN = SGD(RNN, SGDParams);
 
 %%
 
@@ -108,24 +109,20 @@ function seq = SyntesizeSequence(RNN, h0, x0, n)
 end
 
 
-function [p, h, a, l] = ForwardPass(X, Y, RNN, h0)
+function [P, H, a, L] = ForwardPass(X, Y, RNN, h0)
     seq_length = size(X, 2);
-    a = cell(seq_length, 1); h = cell(seq_length+1, 1); 
-    o = cell(seq_length, 1); p = cell(seq_length, 1);
-    
-    h{1} = h0; 
+    M = size(RNN.b, 1); K = size(RNN.c, 1);
+    a = zeros(M, seq_length); H = zeros(M, seq_length+1); H(:, 1) = h0;
+    o = zeros(K, seq_length); P = zeros(K, seq_length);
 
-    for t=1:seq_length
-        a{t} = RNN.W * h{t} + RNN.U * X(:, t)+ RNN.b;
-        h{t+1} = tanh(a{t});
-        o{t} = RNN.V * h{t+1} + RNN.c;
-        p{t} = SoftMax(o{t});
+    for t=1:seq_length 
+        a(:, t) = RNN.W * H(:, t) + RNN.U * X(:, t) + RNN.b;
+        H(:, t+1) = tanh(a(:, t));
+        o(:, t) = RNN.V * H(:, t+1) + RNN.c;
+        P(:, t) = SoftMax(o(:, t));
     end
 
-    l = 0;
-    for t=1:seq_length
-        l = l - log(Y(:, t)' * p{t});
-    end
+    L = sum(-log(sum(Y .* P)));
 end
 
 
@@ -135,68 +132,57 @@ function L = ComputeLoss(X, Y, RNN, h0)
     % Syntax: L = ComputeLoss(X, Y, RNN, h0)
     %
 
-    seq_length = size(X, 2);
-
     [p, ~, ~, l] = ForwardPass(X, Y, RNN, h0);
 
-    L = 0;
-    for t=1:seq_length
-        L = L - log(Y(:, t)' * p{t});
-    end
+    L = l;
         
 end
 
 
 function Grads = BackwardPass(RNN, P, H, a, Y, X)
-    seq_length = numel(H)-1;
-    [M, K] = size(RNN.U);
+    seq_length = size(X, 2);
+    [K, M] = size(RNN.V);
 
-    dLdo = cell(1, seq_length);
-    dLdh = cell(1, seq_length);
-    dLda = cell(1, seq_length);
+    G = -(Y - P);
 
+    % dLdV = G * H(:, 2:end)';
+    dLdV = 0;
     for t=1:seq_length
-        dLdo{t} = -(Y(:, t) - P{t})';
+        dLdV = dLdV + G(:, t) * H(:, t+1)';
     end
+    
+    dLdc = sum(G, 2);
 
-    dLdh{seq_length} = dLdo{seq_length} * RNN.V;
-    dLda{seq_length} = dLdh{seq_length} * diag(1 - tanh(a{seq_length}).^2);
+    Grads.V = dLdV;
+    Grads.c = dLdc;
+
+    dLdh = zeros(seq_length, M);
+    dLda = zeros(seq_length, M);
+    dLdh(seq_length, :) = G(:, seq_length)' * RNN.V;
+    dLda(seq_length, :) = dLdh(seq_length, :) * diag(1 - tanh(a(:, seq_length)).^2);
 
     for t=seq_length-1:-1:1
-        dLdh{t} = dLdo{t} * RNN.V + dLda{t+1} * RNN.W;
-        dLda{t} = dLdh{t} * diag(1 - tanh(a{t}).^2);
+        dLdh(t, :) = G(:, t)' * RNN.V + dLda(t+1, :) * RNN.W;
+        dLda(t, :) = dLdh(t, :) * diag(1 - tanh(a(:, t)).^2);
     end
 
-    dLdV = zeros(K, M);
+    G = dLda';
+
+    dLdW = 0;
+    for t=2:seq_length+1
+        dLdW = dLdW + G(:, t-1) * H(:, t)';
+    end
+
+    dLdU = 0;
     for t=1:seq_length
-        dLdV = dLdV + dLdo{t}' * H{t+1}';
+        dLdU = dLdU + G(:, t) * X(:, t)';
     end
 
-    dLdc = zeros(K, 1);
-    for t=1:seq_length
-        dLdc = dLdc + dLdo{t}';
-    end
+    dLdb = sum(G, 2);
 
-    dLdW = zeros(M, M);
-    for t=1:seq_length
-        dLdW = dLdW + dLda{t}' * H{t}';
-    end
-
-    dLdU = zeros(M, K);
-    for t=1:seq_length
-        dLdU = dLdU + dLda{t}' * X(:, t)';
-    end
-
-    dLdb = zeros(M, 1);
-    for t=1:seq_length
-        dLdb = dLdb + dLda{t}';
-    end
-
-    Grads.b = dLdb;
-    Grads.c = dLdc;
-    Grads.U = dLdU;
     Grads.W = dLdW;
-    Grads.V = dLdV;
+    Grads.U = dLdU;
+    Grads.b = dLdb;
 
 end
 
@@ -230,7 +216,6 @@ end
 
 
 function num_grads = ComputeGradsNum(X, Y, RNN, h)
-
     for f = fieldnames(RNN)'
         disp('Computing numerical gradient for')
         disp(['Field name: ' f{1} ]);
@@ -238,9 +223,7 @@ function num_grads = ComputeGradsNum(X, Y, RNN, h)
     end
 end
 
-
 function grad = ComputeGradNumSlow(X, Y, f, RNN, h)
-    
     n = numel(RNN.(f));
     grad = zeros(size(RNN.(f)));
     hprev = zeros(size(RNN.W, 1), 1);
@@ -296,7 +279,7 @@ function RNN = SGD(RNN, SGDParams)
                 smooth_loss = l;
             end
 
-            hprev = H{end};
+            hprev = H(:, end);
             if mod(i, 100) == 0
                 disp(smooth_loss)
             end
