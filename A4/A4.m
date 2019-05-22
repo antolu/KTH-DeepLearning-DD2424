@@ -21,7 +21,7 @@ end
 M = 100;
 seq_length = 25;
 eta = 0.1;
-sig = 0.1;
+sig = 0.01;
 
 rng(400);
 RNN.b = zeros(M, 1);
@@ -31,11 +31,11 @@ RNN.W = randn(M, M) * sig;
 RNN.V = randn(K, M) * sig;
 
 h0 = zeros(M, 1); 
-% x0 = zeros(K, 1); x(23) = 1;
+x0 = zeros(K, 1); x(23) = 1;
 
-% seq = SyntesizeSequence(RNN, h0, x0, 25);
+seq = SyntesizeSequence(RNN, h0, x0, 25);
 
-% txt = SequenceToText(ind_to_char, seq);
+txt = SequenceToText(ind_to_char, seq);
 
 X_chars = book_data(1:seq_length);
 Y_chars = book_data(2:seq_length+1);
@@ -46,7 +46,6 @@ Y = OneHotRepresentation(char_to_ind, Y_chars);
 %% Compare numerical gradient
 
 [P, H, a, l] = ForwardPass(X, Y, RNN, h0);
-% L = ComputeLoss(X, Y, RNN, h0);
 Grads = BackwardPass(RNN, P, H, a, X, Y);
 
 %%
@@ -56,14 +55,14 @@ NGrads = ComputeGradsNum(X, Y, RNN, 1e-4);
 %% Correlation
 
 for f = fieldnames(Grads)'
-    correlation.(f{1}) = sum(abs(NGrads.(f{1}) - Grads.(f{1}))) / max(1e-6, sum(abs(NGrads.(f{1}))) + sum(abs(Grads.(f{1}))));
+    error.(f{1}) = correlation(NGrads.(f{1}), Grads.(f{1}));
 end
 
 %% Clip gradients
 
-% for f = fieldnames(Grads)'
-%     Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
-% end
+for f = fieldnames(Grads)'
+    Grads.(f{1}) = max(min(Grads.(f{1}), 5), -5);
+end
 
 %% Run SGD
 
@@ -111,7 +110,7 @@ end
 
 function [P, H, a, L] = ForwardPass(X, Y, RNN, h0)
     seq_length = size(X, 2);
-    M = size(RNN.b, 1); K = size(RNN.c, 1);
+    [K, M] = size(RNN.V);
     a = zeros(M, seq_length); H = zeros(M, seq_length+1); H(:, 1) = h0;
     o = zeros(K, seq_length); P = zeros(K, seq_length);
 
@@ -139,13 +138,12 @@ function L = ComputeLoss(X, Y, RNN, h0)
 end
 
 
-function Grads = BackwardPass(RNN, P, H, a, Y, X)
+function Grads = BackwardPass(RNN, P, H, a, X, Y)
     seq_length = size(X, 2);
     [K, M] = size(RNN.V);
 
     G = -(Y - P);
 
-    % dLdV = G * H(:, 2:end)';
     dLdV = 0;
     for t=1:seq_length
         dLdV = dLdV + G(:, t) * H(:, t+1)';
@@ -169,8 +167,8 @@ function Grads = BackwardPass(RNN, P, H, a, Y, X)
     G = dLda';
 
     dLdW = 0;
-    for t=2:seq_length+1
-        dLdW = dLdW + G(:, t-1) * H(:, t)';
+    for t=1:seq_length
+        dLdW = dLdW + G(:, t) * H(:, t)';
     end
 
     dLdU = 0;
@@ -286,4 +284,8 @@ function RNN = SGD(RNN, SGDParams)
         end
     end
 
+end
+
+function c = correlation(first, second)
+    c = sum(abs(first - second)) / max(1e-6, sum(abs(first)) + sum(abs(second)));
 end
