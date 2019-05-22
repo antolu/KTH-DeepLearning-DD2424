@@ -1,5 +1,7 @@
 %% Read in data
 
+slCharacterEncoding('UTF-8')
+
 addpath data
 book_fname = "goblet_book.txt";
 fid = fopen(book_fname, 'r', 'n', 'UTF-8');
@@ -20,10 +22,10 @@ end
 
 M = 100;
 seq_length = 25;
-eta = 0.1;
+eta = 0.001;
 sig = 0.01;
 
-rng(400);
+% rng(400)
 RNN.b = zeros(M, 1);
 RNN.c = zeros(K, 1);
 RNN.U = randn(M, K) * sig;
@@ -50,13 +52,13 @@ Grads = BackwardPass(RNN, P, H, a, X, Y);
 
 %%
 
-NGrads = ComputeGradsNum(X, Y, RNN, 1e-4);
+% NGrads = ComputeGradsNum(X, Y, RNN, 1e-4);
 
 %% Correlation
 
-for f = fieldnames(Grads)'
-    error.(f{1}) = correlation(NGrads.(f{1}), Grads.(f{1}));
-end
+% for f = fieldnames(Grads)'
+%     error.(f{1}) = correlation(NGrads.(f{1}), Grads.(f{1}));
+% end
 
 %% Clip gradients
 
@@ -72,10 +74,16 @@ SGDParams.char_to_ind = char_to_ind;
 SGDParams.ind_to_char = ind_to_char;
 SGDParams.book_data = book_data;
 SGDParams.eta = eta;
-SGDParams.n_epochs = 10;
+SGDParams.n_epochs = 1;
 SGDParams.gamma = 0.9;
 
-RNN = SGD(RNN, SGDParams);
+[RNN, l] = SGD(RNN, SGDParams);
+
+%%
+
+seq = SyntesizeSequence(RNN, h0, x0, 200);
+
+txt = SequenceToText(ind_to_char, seq);
 
 %%
 
@@ -144,10 +152,7 @@ function Grads = BackwardPass(RNN, P, H, a, X, Y)
 
     G = -(Y - P);
 
-    dLdV = 0;
-    for t=1:seq_length
-        dLdV = dLdV + G(:, t) * H(:, t+1)';
-    end
+    dLdV = G * H(:, 2:end)';
     
     dLdc = sum(G, 2);
 
@@ -166,15 +171,9 @@ function Grads = BackwardPass(RNN, P, H, a, X, Y)
 
     G = dLda';
 
-    dLdW = 0;
-    for t=1:seq_length
-        dLdW = dLdW + G(:, t) * H(:, t)';
-    end
+    dLdW = G * H(:, 1:end-1)';
 
-    dLdU = 0;
-    for t=1:seq_length
-        dLdU = dLdU + G(:, t) * X(:, t)';
-    end
+    dLdU = G * X';
 
     dLdb = sum(G, 2);
 
@@ -243,20 +242,27 @@ function Grads = ClipGradients(Grads)
 end
 
 
-function RNN = SGD(RNN, SGDParams)
+function [RNN, l] = SGD(RNN, SGDParams)
+    formatSpec = "Iter: %d, smooth loss: %f\n%s\n\n";
+    
+    clear m;
 
+    % Initialise momentum
+    for f = fieldnames(RNN)'
+        m.(f{1}) = 0;
+    end
+    
+    updates_per_epoch = floor(size(SGDParams.book_data, 2)/SGDParams.seq_length);
+    l = zeros(SGDParams.n_epochs * updates_per_epoch, 1);
+    
     for epoch=1:SGDParams.n_epochs
         hprev = SGDParams.h0; 
-        clear m;
     
-        % Initialise momentum
-        for f = fieldnames(RNN)'
-            m.(f{1}){1} = 0;
-        end
-    
-        for i=floor(1:size(SGDParams.book_data, 2)/SGDParams.seq_length)
-            X_chars = SGDParams.book_data(SGDParams.seq_length*(i-1)+1:SGDParams.seq_length*i);
-            Y_chars = SGDParams.book_data(SGDParams.seq_length*(i-1)+2:SGDParams.seq_length*i + 1);
+        for i=1:updates_per_epoch
+            iter = i + (epoch - 1) * updates_per_epoch;
+            
+            X_chars = SGDParams.book_data(SGDParams.seq_length * (i - 1) + 1:SGDParams.seq_length*i);
+            Y_chars = SGDParams.book_data(SGDParams.seq_length * (i - 1) + 2:SGDParams.seq_length*i + 1);
             X = OneHotRepresentation(SGDParams.char_to_ind, X_chars);
             Y = OneHotRepresentation(SGDParams.char_to_ind, Y_chars);
 
@@ -266,8 +272,9 @@ function RNN = SGD(RNN, SGDParams)
             Grads = ClipGradients(Grads);
 
             for f = fieldnames(Grads)'
-                m.(f{1}){i+1} = SGDParams.gamma * m.(f{1}){i} + (1 - SGDParams.gamma) * Grads.(f{1}).^2;
-                eta = SGDParams.eta ./ sqrt(m.(f{1}){i+1} + eps);
+                m.(f{1}) = SGDParams.gamma * m.(f{1}) + (1 - SGDParams.gamma) * Grads.(f{1}).^2;
+%                 m.(f{1}) = m.(f{1}) + Grads.(f{1}).^2;
+                eta = SGDParams.eta ./ sqrt(m.(f{1}) + eps);
                 RNN.(f{1}) = RNN.(f{1}) - eta .* Grads.(f{1});
             end
 
@@ -276,11 +283,18 @@ function RNN = SGD(RNN, SGDParams)
             else
                 smooth_loss = l;
             end
+            l(iter) = smooth_loss;
 
-            hprev = H(:, end);
-            if mod(i, 100) == 0
-                disp(smooth_loss)
+%             if mod(i, 100) == 1
+%                 disp(smooth_loss)
+%             end
+            if mod(iter, 1000) == 0
+                seq = SyntesizeSequence(RNN, hprev, X(:, 1), 100);
+                txt = SequenceToText(SGDParams.ind_to_char, seq);
+                
+                fprintf(formatSpec, iter, smooth_loss, txt);
             end
+            hprev = H(:, end);
         end
     end
 
