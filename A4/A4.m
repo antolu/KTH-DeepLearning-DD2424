@@ -74,18 +74,38 @@ SGDParams.char_to_ind = char_to_ind;
 SGDParams.ind_to_char = ind_to_char;
 SGDParams.book_data = book_data;
 SGDParams.eta = eta;
-SGDParams.n_epochs = 1;
+SGDParams.n_epochs = 10;
 SGDParams.gamma = 0.9;
+
+formatSpec = "Iter: %d, smooth loss: %f\n%s\n\n";
+seq = SyntesizeSequence(RNN, h0, X(:, 1), 200);
+txt = SequenceToText(SGDParams.ind_to_char, seq);
+
+fprintf(formatSpec, 0, l, txt);
 
 [RNN, l] = SGD(RNN, SGDParams);
 
 %%
 
-seq = SyntesizeSequence(RNN, h0, x0, 200);
+h0(floor(rand * K)) = 1;
+seq = SyntesizeSequence(RNN, h0, x0, 1000);
 
-txt = SequenceToText(ind_to_char, seq);
+txt = SequenceToText(ind_to_char, seq)
 
-%%
+%% Plot loss
+
+figure; 
+
+title("Smooth loss vs update steps", 'Interpreter','tex');
+
+plot(l, 'LineWidth', 1.2)
+
+xlabel('update step');
+ylabel('smooth loss');
+
+saveas(gca, "smooth_loss.eps", 'epsc');
+
+%% 
 
 function seq = SyntesizeSequence(RNN, h0, x0, n) 
 
@@ -99,7 +119,7 @@ function seq = SyntesizeSequence(RNN, h0, x0, n)
     for t=1:n
         a{t} = RNN.W * h{t} + RNN.U * x{t} + RNN.b;
         h{t+1} = tanh(a{t});
-        o{t} = RNN.V * h{t+1};
+        o{t} = RNN.V * h{t+1} + RNN.c;
         p{t} = SoftMax(o{t});
 
         cp = cumsum(p{t});
@@ -242,7 +262,7 @@ function Grads = ClipGradients(Grads)
 end
 
 
-function [RNN, l] = SGD(RNN, SGDParams)
+function [RNN, L] = SGD(RNN, SGDParams)
     formatSpec = "Iter: %d, smooth loss: %f\n%s\n\n";
     
     clear m;
@@ -253,7 +273,7 @@ function [RNN, l] = SGD(RNN, SGDParams)
     end
     
     updates_per_epoch = floor(size(SGDParams.book_data, 2)/SGDParams.seq_length);
-    l = zeros(SGDParams.n_epochs * updates_per_epoch, 1);
+    L = zeros(SGDParams.n_epochs * updates_per_epoch, 1);
     
     for epoch=1:SGDParams.n_epochs
         hprev = SGDParams.h0; 
@@ -283,13 +303,13 @@ function [RNN, l] = SGD(RNN, SGDParams)
             else
                 smooth_loss = l;
             end
-            l(iter) = smooth_loss;
+            L(iter) = smooth_loss;
 
 %             if mod(i, 100) == 1
 %                 disp(smooth_loss)
 %             end
-            if mod(iter, 1000) == 0
-                seq = SyntesizeSequence(RNN, hprev, X(:, 1), 100);
+            if mod(iter, 10000) == 0
+                seq = SyntesizeSequence(RNN, hprev, X(:, 1), 200);
                 txt = SequenceToText(SGDParams.ind_to_char, seq);
                 
                 fprintf(formatSpec, iter, smooth_loss, txt);
